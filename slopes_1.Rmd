@@ -1,0 +1,109 @@
+---
+title: "R Notebook"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+ 
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/")
+library(dplyr)
+df <- readRDS("./OUTPUT/allresults_RENAME_3Mar2025.rds")
+df <- df %>%
+  mutate(across(-1, as.numeric))
+
+
+df_summary <- df %>%
+  mutate(sign_pattern = paste(sign(slope_msl), sign(slope_M2), sign(slope_med6), sep = "_")) %>%
+  count(sign_pattern, name = "count") %>%
+  arrange(desc(count))
+
+print(df_summary)
+
+```
+
+```{r}
+# Contingency table for slope_msl vs slope_M2
+table_msl_M2 <- table(sign(df$slope_msl), sign(df$slope_M2))
+print(table_msl_M2)
+
+# Contingency table for slope_msl vs slope_med6
+table_msl_med6 <- table(sign(df$slope_msl), sign(df$slope_med6))
+print(table_msl_med6)
+
+# Contingency table for slope_M2 vs slope_med6
+table_M2_med6 <- table(sign(df$slope_M2), sign(df$slope_med6))
+print(table_M2_med6)
+```
+
+
+```{r}
+chisq.test(table_msl_M2)
+chisq.test(table_msl_med6)
+chisq.test(table_M2_med6)
+
+```
+# What did we learn?
+
+slope_msl is related to slope_med6 (p = 0.01894).
+slope_msl is NOT related to slope_M2 (p = 0.5255).
+slope_M2 is NOT related to slope_med6 (p = 0.1863).
+
+This suggests that slope_med6 may be influenced by slope_msl, but the other pairings show no evidence of correlation.
+
+```{r}
+fisher.test(table_msl_M2)
+fisher.test(table_msl_med6)
+fisher.test(table_M2_med6)
+
+```
+```{r}
+png("FIGURES/contingency_msl_med6.png", width = 800, height = 800, res = 100)
+# Calculate quadrant counts
+par(mar = c(5, 6, 4, 2) + 0.1)  # Increase left margin (2nd value) for y-axis label
+
+q1 <- sum(df$slope_msl > 0 & df$slope_med6 > 0)  # Top-right (+, +)
+q2 <- sum(df$slope_msl < 0 & df$slope_med6 > 0)  # Top-left (-, +)
+q3 <- sum(df$slope_msl < 0 & df$slope_med6 < 0)  # Bottom-left (-, -)
+q4 <- sum(df$slope_msl > 0 & df$slope_med6 < 0)  # Bottom-right (+, -)
+
+# Perform Chi-square test and extract p-value
+chi_test <- chisq.test(table(sign(df$slope_msl), sign(df$slope_med6)))
+p_value <- round(chi_test$p.value, 2)
+
+# Define limits with padding (10% extra space)
+x_range <- range(df$slope_msl, na.rm = TRUE)
+y_range <- range(df$slope_med6, na.rm = TRUE)
+x_lim <- c(x_range[1] - 0.1 * diff(x_range), x_range[2] + 0.1 * diff(x_range))
+y_lim <- c(y_range[1] - 0.1 * diff(y_range), y_range[2] + 0.1 * diff(y_range))
+
+# Plot with extra space at edges
+plot(df$slope_msl, df$slope_med6, 
+     pch=19, cex=0.8, 
+     xlab="MSL slope [cm/yr]", ylab="slope of Ann. max residual [cm/yr]",
+     cex.lab=1.6,   # Font size of axis labels
+     cex.axis=1.3,  # Font size of tick mark labels
+     xlim=x_lim, ylim=y_lim  # Adds air at the edges
+)
+
+# Add horizontal and vertical reference lines
+abline(h=0, col=2)
+abline(v=0, col=2)
+
+# Add quadrant counts
+text(x = max(df$slope_msl) * 0.75, y = max(df$slope_med6) * 0.75, labels = q1, col = "blue", cex=1.5)
+text(x = min(df$slope_msl) * 0.75, y = max(df$slope_med6) * 0.75, labels = q2, col = "blue", cex=1.5)
+text(x = min(df$slope_msl) * 0.75, y = min(df$slope_med6) * 0.75, labels = q3, col = "blue", cex=1.5)
+text(x = max(df$slope_msl) * 0.75, y = min(df$slope_med6) * 0.75, labels = q4, col = "blue", cex=1.5)
+
+# Add p-value in the top-left corner
+text(x = x_lim[1] + 0.05 * diff(x_lim), y = y_lim[2] - 0.05 * diff(y_lim), 
+     labels = paste("p =", p_value), col = "red", cex=1.5, pos=4)
+
+dev.off()
+```
+ 
+ 

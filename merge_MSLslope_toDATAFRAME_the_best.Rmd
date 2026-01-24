@@ -1,0 +1,26 @@
+---
+title: "Augementing the_best.rds"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+
+Adds MSL slope as a column to the_best.rds for use my the map-maker code.
+ 
+
+```{r}
+rm(list=ls())
+# Load package
+library(readxl)
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+best <- readRDS('OUTPUT/the_best.rds')
+# Read XLSX into a data.frame
+df <- read_excel("DATA/MSLslope_Table.xlsx")
+#
+merged <- merge(best,df,by="filename",all=TRUE)
+#
+saveRDS(merged,'OUTPUT/the_best_merged.rds')
+```
+
+ 

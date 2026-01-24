@@ -1,0 +1,120 @@
+---
+title: "R Notebook"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+ 
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+#
+df <- read.csv("~/WORKSHOP/LOS/OUTPUT/seabed_median_slope_and_depth_TEST2.csv",header=TRUE,sep=",")
+ 
+```
+
+
+```{r}
+df$mean_radius <- (df$inner_radius_km+df$outer_radius_km)/2
+#
+plot(df$mean_radius, 1000*df$slope_band_median,pch=19,cex=0.3,xlab='mean radius between annuli [km]',ylab="Seabed slope [m/km]",main="34 significantly nonstationary GESLA tide-gauge stations")
+abline(h=0,col=2,lwd=3)
+#
+plot(df$mean_radius, df$depth_band_median_m/1000,pch=19,cex=0.3,xlab='mean radius between annuli [km]',ylab="Median seabed depth [km]",main="34 significantly nonstationary GESLA tide-gauge stations")
+abline(h=0,col=2,lwd=3)
+```
+
+
+ 
+```{r}
+library(ggplot2)
+library(scales)
+
+# ---- Signed log transform ----
+signed_log <- function(x, scale = 500) {
+  sign(x) * log10(1 + abs(x) * scale)
+}
+
+# Transform slope values
+df$slope_trans <- signed_log(df$slope_band_median, scale = 500)
+
+# Factor levels for axis control
+df$inner_radius_km <- factor(df$inner_radius_km, levels = sort(unique(df$inner_radius_km)))
+df$outer_radius_km <- factor(df$outer_radius_km, levels = sort(unique(df$outer_radius_km)))
+
+# ---- Define custom diverging rainbow palette ----
+diverging_rainbow <- colorRampPalette(rev(rainbow(11)))(100)
+
+# ---- Plot ----
+ggplot(df, aes(x = inner_radius_km, y = outer_radius_km, fill = slope_trans)) +
+  geom_tile(color = "white") +
+  scale_fill_gradientn(
+    colors = diverging_rainbow,
+    name = "Median Slope\n(stretched)",
+    limits = c(-max(abs(df$slope_trans), na.rm = TRUE),
+                max(abs(df$slope_trans), na.rm = TRUE)),
+    oob = squish
+  ) +
+  coord_fixed() +
+  theme_minimal() +
+  labs(
+    x = "Inner Radius (km)",
+    y = "Outer Radius (km)",
+    title = "Heatmap: Seabed slope [m/km]"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+```
+
+```{r}
+library(ggplot2)
+library(scales)
+
+# --- Filter and transform depth ---
+df <- df[df$depth_band_median_m < 0 & !is.na(df$depth_band_median_m), ]
+df$depth_log <- log10(-df$depth_band_median_m)
+
+# Set axis factors
+df$inner_radius_km <- factor(df$inner_radius_km, levels = sort(unique(df$inner_radius_km)))
+df$outer_radius_km <- factor(df$outer_radius_km, levels = sort(unique(df$outer_radius_km)))
+
+# Use Turbo or Rainbow palette
+depth_palette <- viridis::turbo(100)  # or colorRampPalette(rev(rainbow(11)))(100)
+
+# Set clipping range
+clip_min <- log10(1)      # = 0
+clip_max <- log10(1000)   # = 3
+
+# Plot heatmap
+ggplot(df, aes(x = inner_radius_km, y = outer_radius_km, fill = depth_log)) +
+  geom_tile(color = "white") +
+  scale_fill_gradientn(
+    colors = depth_palette,
+    name = "Depth (m)",
+    limits = c(clip_min, clip_max),
+    oob = squish,  # squish out-of-bounds values
+    breaks = log10(c(1, 5, 10, 50, 100, 200, 500, 1000)),
+    labels = c("1", "5", "10", "50", "100", "200", "500", "1000")
+  ) +
+  coord_fixed() +
+  theme_minimal() +
+  labs(
+    x = "Inner Radius (km)",
+    y = "Outer Radius (km)",
+    title = "Heatmap: Median Ocean Depth (log10 scaled, clipped to 1–1000 m)"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+
+```
+
+
+
+ 

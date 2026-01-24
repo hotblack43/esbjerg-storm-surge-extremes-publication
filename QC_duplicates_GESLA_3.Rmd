@@ -1,0 +1,86 @@
+---
+title: "QC duplicates in GESLA"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+
+# --- Setup ---
+aha <- "~/WORKSHOP/ESBJERG2/PUBLICATION/DATA/GESLA_duplicates_55plus_b.txt"
+duplicate_file <- "~/WORKSHOP/ESBJERG2/PUBLICATION/DATA/GESLA_duplicates_55plus.txt"
+gesla_dir <- "~/GESLA/"
+
+# --- Read the duplicates list ---
+dups <- read.table(duplicate_file, header = FALSE, stringsAsFactors = FALSE)
+colnames(dups) <- c("n_files", "station")
+dups_filtered <- dups %>% filter(n_files >= 2)
+
+# --- Read and summarize a GESLA file into monthly means ---
+read_gesla_file <- function(filepath) {
+  df <- read.csv(filepath, sep = "", header = FALSE, skip = 41,
+                 colClasses = c("character", "character", "numeric", "integer", "integer"))
+  colnames(df) <- c("date", "time", "height", "qc_flag", "use_flag")
+
+  df <- df %>%
+    filter(use_flag == 1, !is.na(height)) %>%
+    mutate(
+      datetime = ymd_hms(paste(date, time), tz = "UTC"),
+      year_month = floor_date(datetime, unit = "month"),
+      file = basename(filepath)
+    ) %>%
+    group_by(file, year_month) %>%
+    summarise(
+      datetime = mean(as.numeric(datetime)),  # numeric mean of POSIXct
+      height = mean(height, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(datetime = as.POSIXct(datetime, origin = "1970-01-01", tz = "UTC"))
+
+  return(df)
+}
+
+# --- Loop over stations and plot offset-normalized duplicates ---
+for (station in dups_filtered$station) {
+  pattern <- paste0("^", station)
+  files <- list.files(gesla_dir, pattern = pattern, full.names = TRUE)
+
+  if (length(files) >= 2) {
+    message("Plotting station: ", station, " (", length(files), " duplicates)")
+
+    # Read and process all files
+    series_list <- lapply(files, read_gesla_file)
+    for (i in seq_along(series_list)) {
+      df <- series_list[[i]]
+      h_mean <- mean(df$height, na.rm = TRUE)
+      h_sd   <- sd(df$height, na.rm = TRUE)
+      offset <- (i - 1) * h_sd
+      df$height <- df$height - h_mean + offset
+      series_list[[i]] <- df
+    }
+
+    combined_df <- bind_rows(series_list)
+
+    # Plot
+    p <- ggplot(combined_df, aes(x = datetime, y = height, color = file)) +
+      geom_line(size = 0.8, alpha = 0.9) +
+      labs(title = paste("Monthly Mean Sea Level (Offset) —", station),
+           x = "Date", y = "Offset Sea Level (relative units)") +
+      theme_minimal()
+
+    print(p)
+    # Optional: readline("Press [Enter] to continue...")
+  }
+}
+
+
+```
+
+ 

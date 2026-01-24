@@ -1,0 +1,56 @@
+---
+title: "Stationinfo - extract lon/lat"
+output: html_notebook
+---
+
+ 
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/esbjerg-storm-surge-extremes-publication")
+# Load necessary libraries
+library(stringr)
+
+# Set the path to the directory containing the files
+data_dir <- "~/GESLA4/DATA/"  # <-- change this
+file_list <- list.files(data_dir, full.names = TRUE)
+
+# Initialize an empty list to collect results
+results <- list()
+
+# Loop over all files
+for (f in file_list) {
+  header_lines <- readLines(f, n = 41, warn = FALSE)
+  
+  # Look for lines containing LONGITUDE and LATITUDE
+  lon_line <- header_lines[grepl("LONGITUDE", header_lines, ignore.case = TRUE)]
+  lat_line <- header_lines[grepl("LATITUDE", header_lines, ignore.case = TRUE)]
+
+  # Extract the first number from each line (after the keyword)
+  lon <- as.numeric(str_extract(lon_line, "-?\\d+\\.\\d+|-?\\d+"))
+  lat <- as.numeric(str_extract(lat_line, "-?\\d+\\.\\d+|-?\\d+"))
+
+  # If either is missing, skip the file
+  if (length(lon) == 1 && length(lat) == 1) {
+    results[[length(results) + 1]] <- data.frame(
+      filename = basename(f),
+      longitude = lon,
+      latitude = lat,
+      stringsAsFactors = FALSE
+    )
+  } 
+  #else {
+   # warning(sprintf("Missing coordinates in file: %s", basename(f)))
+  #}
+}
+
+# Combine the results into one data frame
+df_coords <- do.call(rbind, results)
+
+# Save to RDS
+saveRDS(df_coords, file = file.path( "DATA/station_metadata.rds"))
+
+
+```
+
+ 

@@ -1,0 +1,127 @@
+---
+title: "ETOPO1 batimetri"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+library(terra)
+library(geosphere)  # For Haversine function
+
+# at DMI
+#datapath <- "/dmidata/projects/nckf/earthshine/MISC_DATA/"
+# at home
+datapath <- "/home/pth/WORKSHOP/ESBJERG/DATA/"
+#datapath <- "/dmidata/projects/nckf/earthshine/"
+# read data
+etopo1 <- rast(paste0(datapath,"ETOPO1_Bed_g_gmt4.grd"))
+#GESLA3_metadata_lon_lat <- as.data.frame(readRDS("OUTPUT/GESLA3_metadata_lon_lat.rds"))
+GESLA3_metadata_lon_lat <- read.csv("DATA/gesla_station_index.csv",sep=",",header=TRUE)
+
+GESLA3_metadata_lon_lat$longitude <- as.numeric(GESLA3_metadata_lon_lat$longitude)
+GESLA3_metadata_lon_lat$latitude <- as.numeric(GESLA3_metadata_lon_lat$latitude)
+
+# Define the function to calculate distance using the Haversine formula
+calculate_haversine <- function(lon1, lat1, lon2, lat2) {
+  geosphere::distHaversine(c(lon1, lat1), c(lon2, lat2))
+}
+
+# List of depths to analyze
+depth_thresholds <- c(-40) #),-50)  # Define your array of depths here
+
+# Initialize the result data frame
+listen <- NULL
+
+# Loop over each station
+for (i in 1:nrow(GESLA3_metadata_lon_lat)) {
+  station_name <- GESLA3_metadata_lon_lat$Name[i]
+  lon_point <- GESLA3_metadata_lon_lat$lon[i]
+  lat_point <- GESLA3_metadata_lon_lat$lat[i]
+  filnam <- GESLA3_metadata_lon_lat$filename[i]
+  print(paste('Trying: ', station_name, lon_point, lat_point, filnam))
+  
+  # Define the extent of interest (±X degrees around the station)
+  lon_min <- lon_point - 5
+  lon_max <- lon_point + 5
+  lat_min <- lat_point - 5
+  lat_max <- lat_point + 5
+  
+  # Create the extent object
+  extent <- ext(lon_min, lon_max, lat_min, lat_max)
+  
+  # Crop the data to the specified extent
+  etopo_subset <- crop(etopo1, extent)
+  
+  # Initialize a vector to store distances for each depth
+  distances_to_depths <- numeric(length(depth_thresholds))
+  
+  # Loop over each depth threshold
+  for (j in seq_along(depth_thresholds)) {
+    depth_threshold <- depth_thresholds[j]
+    
+    # Identify cells with depths below the threshold
+    ocean_cells <- which(values(etopo_subset) <= depth_threshold)
+    
+    # Convert cell indices to coordinates
+    coords_ocean <- xyFromCell(etopo_subset, ocean_cells)
+    
+    # Calculate distances to all ocean points
+    distances <- sapply(1:nrow(coords_ocean), function(k) {
+      calculate_haversine(lon_point, lat_point, coords_ocean[k, 1], coords_ocean[k, 2])
+    })
+    
+    # Find the minimum distance
+    min_distance_idx <- which.min(distances)
+    if (length(min_distance_idx) == 0){distances_to_depths[j] <- -999000}
+    if (length(min_distance_idx) != 0) {distances_to_depths[j] <- distances[min_distance_idx] / 1000}  # Convert to kilometers
+  } # end j loop
+  
+  # Add results to the data frame
+  linjen <- c(station_name, filnam, lon_point, lat_point, distances_to_depths)
+  print(paste('Adding ',station_name, filnam, lon_point, lat_point, distances_to_depths))
+  listen <- rbind.data.frame(listen, linjen)
+  
+  # Optionally, plot for the last depth threshold (for demonstration)
+  if (i == nrow(GESLA3_metadata_lon_lat)) {
+    closest_ocean_point <- coords_ocean[min_distance_idx, ]
+    
+    # Define the color palette
+    blue_colors <- colorRampPalette(c("lightblue", "blue", "darkblue"))(100)
+    brown_colors <- colorRampPalette(c("lightyellow", "orange", "brown", "saddlebrown"))(100)
+    colors <- c(blue_colors, brown_colors)
+    
+    # Define the breakpoints for the color scale
+    breaks <- seq(-500, 500, length.out = 101)
+    
+    # Plot with the custom color scale
+    plot(etopo_subset, col = colors, breaks = breaks, main = station_name)
+    
+    # Add the land point (in green)
+    points(lon_point, lat_point, col = "green", pch = 16, cex = 1.5)
+    
+    # Add the closest ocean point (in green)
+    points(closest_ocean_point[1], closest_ocean_point[2], col = "green", pch = 16, cex = 1.5)
+    
+    # Draw a line connecting the land point to the ocean point
+    lines(c(lon_point, closest_ocean_point[1]), c(lat_point, closest_ocean_point[2]), col = "green", lwd = 2)
+  }
+  print('.........................................................')
+}
+
+# Set column names for the output
+colnames(listen) <- c("Name", "filename", "lon", "lat", paste0("distance_", abs(depth_thresholds), "m"))
+
+# Convert columns to numeric where appropriate
+listen$lon <- as.numeric(listen$lon)
+listen$lat <- as.numeric(listen$lat)
+listen[, 4:ncol(listen)] <- lapply(listen[, 4:ncol(listen)], as.numeric)
+
+# Save the result to a file
+saveRDS(listen, "OUTPUT/dist_to_depths_GESLA3_stations_2.rds")
+
+```
+

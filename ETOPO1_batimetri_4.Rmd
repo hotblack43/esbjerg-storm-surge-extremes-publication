@@ -1,0 +1,103 @@
+---
+title: "ETOPO1 batimetri"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+library(terra)
+library(geosphere)  # For Haversine function
+
+# Set data path
+# at home
+datapath <- "/home/pth/WORKSHOP/ESBJERG/DATA/"
+
+# Read ETOPO1 grid
+etopo1 <- rast(paste0(datapath,"ETOPO1_Bed_g_gmt4.grd"))
+
+# Read station metadata
+GESLA3_metadata_lon_lat <- read.csv("DATA/gesla_station_index.csv", sep=",", header=TRUE)
+GESLA3_metadata_lon_lat$longitude <- as.numeric(GESLA3_metadata_lon_lat$longitude)
+GESLA3_metadata_lon_lat$latitude <- as.numeric(GESLA3_metadata_lon_lat$latitude)
+
+# Initialize the result data frame
+listen <- data.frame(
+  name = character(0),
+  lon = numeric(0),
+  lat = numeric(0),
+  depth_1km = numeric(0),
+  depth_10km = numeric(0),
+  slope_m_per_km = numeric(0),
+  stringsAsFactors = FALSE
+)
+
+# Loop over each station
+for (i in 1:nrow(GESLA3_metadata_lon_lat)) {
+  station_name <- as.character(GESLA3_metadata_lon_lat$Name[i])
+  lon_point <- as.numeric(GESLA3_metadata_lon_lat$lon[i])
+  lat_point <- as.numeric(GESLA3_metadata_lon_lat$lat[i])
+  filnam <- as.character(GESLA3_metadata_lon_lat$filename[i])
+
+  print(paste("Trying:", lon_point, lat_point, filnam))
+
+  # Define the extent of interest (±0.2 degrees ~ 20 km)
+  extent <- ext(lon_point - 0.2, lon_point + 0.2, lat_point - 0.2, lat_point + 0.2)
+  etopo_subset <- crop(etopo1, extent)
+
+  values <- values(etopo_subset)
+  crds <- crds(etopo_subset, df = TRUE)
+
+  if (all(is.na(values))) {
+    message(paste("⚠️ No valid data for", station_name, "— skipping."))
+    next
+  }
+
+  dists <- geosphere::distHaversine(
+    crds,
+    matrix(c(lon_point, lat_point), nrow = nrow(crds), ncol = 2, byrow = TRUE)
+  ) / 1000  # in km
+
+  annulus_1km <- which(dists >= 0.5 & dists <= 1.5)
+  annulus_10km <- which(dists >= 8.5 & dists <= 11.5)
+
+  if (length(annulus_1km) < 3 || length(annulus_10km) < 3) {
+    message(paste("⚠️ Not enough points in 1km or 10km annulus for", station_name, "— skipping."))
+    next
+  }
+
+  depth_1km <- mean(values[annulus_1km], na.rm = TRUE)
+  depth_10km <- mean(values[annulus_10km], na.rm = TRUE)
+
+  if (is.na(depth_1km) || is.na(depth_10km) ||
+      !is.finite(depth_1km) || !is.finite(depth_10km) ||
+      length(depth_1km) != 1 || length(depth_10km) != 1) {
+    message(paste("⚠️ Invalid or missing mean depths for", station_name, "— skipping."))
+    next
+  }
+
+  slope <- (depth_10km - depth_1km) / 9
+
+  # Build row explicitly
+  new_row <- data.frame(
+    name = rep(station_name, 1),
+    lon = rep(lon_point, 1),
+    lat = rep(lat_point, 1),
+    depth_1km = rep(depth_1km, 1),
+    depth_10km = rep(depth_10km, 1),
+    slope_m_per_km = rep(slope, 1),
+    stringsAsFactors = FALSE
+  )
+
+  if (nrow(new_row) == 1) {
+    listen <- rbind(listen, new_row)
+    print(paste("✔", station_name, "depths:", depth_1km, depth_10km, "slope:", slope, "m/km"))
+    print(".........................................................")
+  } else {
+    message(paste("⚠️ Unexpected error when creating row for", station_name))
+  }
+}
+```
+

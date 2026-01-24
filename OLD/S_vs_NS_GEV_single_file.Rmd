@@ -1,0 +1,26 @@
+# Load required package
+library(evd)
+
+# Set path to your annual file
+file_path <- "PUBLICATION/OUTPUT/ANNUALS/Nordhavn_annual.csv"
+
+# Read the data
+df <- read.csv(file_path)
+
+# Sanity check
+stopifnot(all(c("summer_year", "max_residual", "mean_sea_level") %in% names(df)))
+
+# --- Stationary GEV fit ---
+fit_stationary <- fgev(df$max_residual)
+
+# --- Non-stationary GEV fit (location = f(mean_sea_level)) ---
+fit_nonstationary <- fgev(df$max_residual, location = ~ mean_sea_level, data = df)
+
+# --- Extract and report AICs ---
+aic_stationary <- AIC(fit_stationary)
+aic_nonstationary <- AIC(fit_nonstationary)
+
+cat("📁 File: ", basename(file_path), "\n")
+cat("📊 Stationary GEV AIC:     ", round(aic_stationary, 2), "\n")
+cat("📊 Non-stationary GEV AIC: ", round(aic_nonstationary, 2), "\n")
+

@@ -1,0 +1,10 @@
+kill -9 5757
+kill -9 5762
+kill -9 5763
+kill -9 5764
+kill -9 5766
+kill -9 5822
+kill -9 5847
+kill -9 5901
+kill -9 6589
+kill -9 10313

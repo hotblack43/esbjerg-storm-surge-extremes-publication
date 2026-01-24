@@ -1,0 +1,141 @@
+---
+title: "Looper version of 'Is seabed slope a factor in non-stationarity of storm surges?'"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+
+Use WORKSHOP/LOS/looper_Seabed_slope_4.py to generate the file /home/pth/WORKSHOP/LOS/OUTPUT/seabed_slopes_multi_radius.csv
+
+```{r}
+# seabed_slope_multi_radius_analysis.R
+
+# --- Setup ---
+rm(list = ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION")
+
+# Load data
+multi_slope <- read.csv("/home/pth/WORKSHOP/LOS/OUTPUT/seabed_slopes_multi_radius.csv")
+betas       <- read.csv("RESULTS/merged.csv")
+best        <- readRDS("OUTPUT/the_best.rds")
+
+# Normalize filenames
+multi_slope$filename <- trimws(tolower(multi_slope$filename))
+betas$filename       <- trimws(tolower(betas$filename))
+best$filename        <- trimws(tolower(best$filename))
+
+# Prepare output holder
+results <- data.frame(inner_radius_km = numeric(), outer_radius_km = numeric(), p_value = numeric())
+
+# Identify unique radius pairs
+radius_pairs <- unique(multi_slope[, c("inner_radius_km", "outer_radius_km")])
+
+# Loop through each radius pair
+for (i in 1:nrow(radius_pairs)) {
+  inner_r <- radius_pairs$inner_radius_km[i]
+  outer_r <- radius_pairs$outer_radius_km[i]
+
+  # Subset data for current radius pair
+  subset_data <- subset(multi_slope, inner_radius_km == inner_r & outer_radius_km == outer_r)
+  if (nrow(subset_data) == 0) next
+
+  # Choose slope metric
+  slope_data <- subset_data[, c("filename", "slope_med")]
+  colnames(slope_data)[2] <- "slope"
+
+  # Merge slope with beta
+  merged <- merge(slope_data, betas[, c("filename", "beta1")], by = "filename")
+  merged <- na.omit(merged)
+
+  # Keep only best stations
+  merged_best <- subset(merged, filename %in% best$filename)
+
+  # Threshold and group
+  threshold <- median(merged_best$slope, na.rm = TRUE)
+  merged_best$slope_group <- ifelse(merged_best$slope < threshold, "steep", "shallow")
+
+  # Boxplot
+  png(filename = paste0("FIGURES/boxplot_", inner_r, "_", outer_r, ".png"),
+      width = 1600, height = 1200, res = 300)
+  boxplot(beta1 ~ slope_group, data = merged_best,
+          main = paste("Slope Effect (", inner_r, "-", outer_r, "km) [Best Stations]"),
+          ylab = "Beta1", xlab = "Slope Group")
+  dev.off()
+
+  # Statistical test
+  test_result <- wilcox.test(beta1 ~ slope_group, data = merged_best)
+  p_val <- test_result$p.value
+
+  # Save result
+  results <- rbind(results, data.frame(inner_radius_km = inner_r, outer_radius_km = outer_r, p_value = p_val))
+}
+
+# Save final table
+write.csv(results, "FIGURES/p_value_table.csv", row.names = FALSE)
+print(results)
+
+```
+
+
+# heatmap of p values
+```{r}
+# --- Heatmap of log10 p-values ---
+# --- Heatmap of log10 p-values ---
+library(ggplot2)
+library(reshape2)
+
+# Filter only valid and upper-triangle entries
+results_heat <- subset(results, outer_radius_km >= inner_radius_km)
+
+# Add log10 p-value column
+results_heat$log_p <- log10(results_heat$p_value)
+
+# Convert to factors to control axis ticks properly
+results_heat$inner_radius_km <- factor(results_heat$inner_radius_km, levels = sort(unique(results_heat$inner_radius_km)))
+results_heat$outer_radius_km <- factor(results_heat$outer_radius_km, levels = sort(unique(results_heat$outer_radius_km)))
+
+# Plot heatmap
+png("FIGURES/log_p_value_heatmap.png", width = 1800, height = 1400, res = 300)
+pp <- ggplot(results_heat, aes(x = outer_radius_km, y = inner_radius_km, fill = log_p)) +
+  geom_tile(color = "white") +
+  scale_fill_gradientn(colors = c("red", "orange", "yellow", "green", "blue"),
+                       name = "log10(p)") +
+  labs(title = "Heatmap of log10(p-values) by Radius Pairs", x = "Outer Radius (km)", y = "Inner Radius (km)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.y = element_text(angle = 0))
+pp
+dev.off()
+pp
+
+# Filter only valid and upper-triangle entries
+results_heat <- subset(results, outer_radius_km >= inner_radius_km)
+
+# Add log10 p-value column and flag for significance
+results_heat$log_p <- log10(results_heat$p_value)
+results_heat$signif <- ifelse(results_heat$p_value > 0.05, TRUE, FALSE)
+
+# Convert to factors to control axis ticks properly
+results_heat$inner_radius_km <- factor(results_heat$inner_radius_km, levels = sort(unique(results_heat$inner_radius_km)))
+results_heat$outer_radius_km <- factor(results_heat$outer_radius_km, levels = sort(unique(results_heat$outer_radius_km)))
+
+# Plot heatmap
+png("FIGURES/log_p_value_heatmap_b.png", width = 1800, height = 1400, res = 300)
+pp <- ggplot(results_heat, aes(x = outer_radius_km, y = inner_radius_km, fill = log_p)) +
+  geom_tile(aes(alpha = signif), color = "white") +
+  scale_fill_gradientn(colors = c("red", "orange", "yellow", "green", "blue"),
+                       limits = c(-3, 0),
+                       breaks = c(-3, -2, -1, 0),
+                       name = "log10(p)") +
+  scale_alpha_manual(values = c("TRUE" = 0.1, "FALSE" = 1), guide = FALSE) +
+  labs(title = "Heatmap of log10(p-values) by Radius Pairs", x = "Outer Radius (km)", y = "Inner Radius (km)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text.y = element_text(angle = 0))
+print(pp)
+dev.off()
+pp
+```
+ 
+ 

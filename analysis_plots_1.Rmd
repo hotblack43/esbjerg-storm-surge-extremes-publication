@@ -1,0 +1,245 @@
+---
+title: "Analysis plots for Esbjerg manuscript"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+ 
+
+```{r}
+# File: plot_y_error_bars.R
+rm(list = ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+
+library(ggplot2)
+
+# Load data
+df <- readRDS("OUTPUT/the_best.rds")
+
+# Column definitions
+x_col <- "beta1"
+y_col <- "slope_MSL"
+yerr_col <- "errMSL"
+
+# Compute y error bounds
+df$ymin <- df[[y_col]] - df[[yerr_col]]
+df$ymax <- df[[y_col]] + df[[yerr_col]]
+
+
+```
+
+```{r}
+# Plot
+p <- ggplot(df, aes_string(x = x_col, y = y_col)) +
+  geom_point(size = 1.2) +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.12) +
+  geom_vline(xintercept = 0, color = "red", linewidth = 0.4) +
+  geom_hline(yintercept = 0, color = "red", linewidth = 0.4) +
+  theme_classic() +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.5),
+    axis.line = element_blank(),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  ) +
+  labs(
+    title = "Significant non-stationary GESLA3 tide-gauges",
+    x = expression(beta ~ "[cm/cm]"),
+    y = "Mean Sea Level Trend [cm/year]"
+  )
+p
+png("FIGURES/MSL_slope_vs_beta.png")
+p
+dev.off()
+
+```
+
+# counts
+```{r}
+
+ 
+# Ensure filename are character
+df$filename <- as.character(df$filename)
+
+# Extract clean station names
+extract_station_name <- function(fname) {
+  raw <- sub("-.*", "", fname)
+  raw <- gsub("_", " ", raw)
+  tools::toTitleCase(tolower(raw))
+}
+df$station <- sapply(df$filename, extract_station_name)
+
+# Classify
+pp <- df$slope_MSL > 0 & df$beta1 > 0
+pm <- df$slope_MSL > 0 & df$beta1 < 0
+mp <- df$slope_MSL < 0 & df$beta1 > 0
+mm <- df$slope_MSL < 0 & df$beta1 < 0
+
+# Sort & pad
+pad <- function(vec, n) c(sort(vec), rep("", n - length(vec)))
+left_top    <- pad(df$station[pp], max(length(df$station[pp]), length(df$station[pm])))
+right_top   <- pad(df$station[pm], length(left_top))
+left_bottom <- pad(df$station[mp], max(length(df$station[mp]), length(df$station[mm])))
+right_bottom<- pad(df$station[mm], length(left_bottom))
+
+# Generate LaTeX lines
+latex_lines <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\begin{tabular}{|l|l|}",
+  "\\hline",
+  "\\textbf{MSL slope $>$ 0, $\\beta_1 > 0$} & \\textbf{MSL slope $>$ 0, $\\beta_1 < 0$} \\\\",
+  "\\hline"
+)
+
+for (i in seq_along(left_top)) {
+  latex_lines <- c(latex_lines, paste0(left_top[i], " & ", right_top[i], " \\\\"))
+}
+
+latex_lines <- c(latex_lines,
+  "\\hline",
+  "\\textbf{MSL slope $<$ 0, $\\beta_1 > 0$} & \\textbf{MSL slope $<$ 0, $\\beta_1 < 0$} \\\\",
+  "\\hline"
+)
+
+for (i in seq_along(left_bottom)) {
+  latex_lines <- c(latex_lines, paste0(left_bottom[i], " & ", right_bottom[i], " \\\\"))
+}
+
+latex_lines <- c(latex_lines,
+  "\\hline",
+  "\\end{tabular}",
+  "\\caption{Joint distribution of signs of mean sea level (MSL) trends and covariate coefficients $\\beta_1$ for selected tide-gauge stations. ",
+  "The stations \\emph{Heesbeen, Kungsholmsfort,} and \\emph{Point Lonsdale} are excluded from this table due to near-zero sign on the MSL slope.}",
+  "\\label{tab:msl_beta_signs}",
+  "\\end{table}"
+)
+
+# Write to file
+writeLines(latex_lines, "OUTPUT/msl_beta_signs_table.tex")
+
+
+```
+
+
+# Using all the OK series
+```{r}
+ 
+# Load data
+df <- readRDS("OUTPUT/the_goodies.rds")
+
+# Column definitions
+x_col <- "beta1"
+y_col <- "slope_MSL"
+yerr_col <- "errMSL"
+
+# Compute y error bounds
+df$ymin <- df[[y_col]] - df[[yerr_col]]
+df$ymax <- df[[y_col]] + df[[yerr_col]]
+
+
+```
+
+```{r}
+# Plot
+p <- ggplot(df, aes_string(x = x_col, y = y_col)) +
+  geom_point(size = 1.2) +
+  geom_errorbar(aes(ymin = ymin, ymax = ymax), width = 0.12) +
+  geom_vline(xintercept = 0, color = "red", linewidth = 0.4) +
+  geom_hline(yintercept = 0, color = "red", linewidth = 0.4) +
+  theme_classic() +
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.5),
+    axis.line = element_blank(),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  ) +
+  labs(
+    title = "Significant non-stationary GESLA3 tide-gauges",
+    x = expression(beta ~ "[cm/cm]"),
+    y = "Mean Sea Level Trend [cm/year]"
+  )
+p
+png("FIGURES/MSL_slope_vs_beta_goodies.png")
+p
+dev.off()
+
+```
+
+# counts
+```{r}
+
+ 
+# Ensure filename are character
+df$filename <- as.character(df$filename)
+
+# Extract clean station names
+extract_station_name <- function(fname) {
+  raw <- sub("-.*", "", fname)
+  raw <- gsub("_", " ", raw)
+  tools::toTitleCase(tolower(raw))
+}
+df$station <- sapply(df$filename, extract_station_name)
+
+# Count each quadrant
+n_pp <- sum(df$slope_MSL > 0 & df$beta1 > 0)
+n_pm <- sum(df$slope_MSL > 0 & df$beta1 < 0)
+n_mp <- sum(df$slope_MSL < 0 & df$beta1 > 0)
+n_mm <- sum(df$slope_MSL < 0 & df$beta1 < 0)
+
+# Build LaTeX lines
+latex_counts <- c(
+  "\\begin{table}[htbp]",
+  "\\centering",
+  "\\begin{tabular}{|c|c|}",
+  "\\hline",
+  "\\textbf{MSL slope $>$ 0, $\\beta_1 > 0$} & \\textbf{MSL slope $>$ 0, $\\beta_1 < 0$} \\\\",
+  "\\hline",
+  paste(n_pp, "&", n_pm, "\\\\"),
+  "\\hline",
+  "\\textbf{MSL slope $<$ 0, $\\beta_1 > 0$} & \\textbf{MSL slope $<$ 0, $\\beta_1 < 0$} \\\\",
+  "\\hline",
+  paste(n_mp, "&", n_mm, "\\\\"),
+  "\\hline",
+  "\\end{tabular}",
+  "\\caption{Count of tide-gauge stations by sign of mean sea level (MSL) trend and $\\beta_1$ coefficient.}",
+  "\\label{tab:msl_beta_signs_counts}",
+  "\\end{table}"
+)
+
+# Write to file
+writeLines(latex_counts, "OUTPUT/msl_beta_signs_table_counts_goodies.tex")
+
+```
+
+
+# test of the two 2x2 contingency tables
+```{r}
+
+library(DescTools)
+
+# Assume you have two 2x2 tables
+table1 <- matrix(c(9,8,14,3), nrow = 2)
+table2 <- matrix(c(107,34,74,19), nrow = 2)
+table3 <- table2 - table1 # needed since table1 is inside table2
+# Combine into 3D array (2 tables stacked)
+tables <- array(c(table1, table3), dim = c(2, 2, 2))
+
+# Apply Breslow-Day test
+bd_test <- BreslowDayTest(tables)
+
+print(bd_test)
+
+# Generate interpretation
+interpretation <- if (bd_test$p.value < 0.05) {
+  sprintf("The Breslow-Day test yields a p-value of %.4f, indicating a significant difference in odds ratios between the two tables. We reject the null hypothesis and conclude that the tables likely represent different populations.", bd_test$p.value)
+} else {
+  sprintf("The Breslow-Day test yields a p-value of %.4f, suggesting no significant difference in odds ratios between the two tables. We fail to reject the null hypothesis and conclude that the tables could plausibly come from the same population.", bd_test$p.value)
+}
+
+cat(interpretation)
+```
+
+
+ 

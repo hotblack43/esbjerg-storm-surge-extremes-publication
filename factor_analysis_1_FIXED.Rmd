@@ -1,0 +1,448 @@
+---
+title: "Factor Analysis of β with X×Cat"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    fig_height: 7
+    fig_width: 7
+    toc: false
+    number_sections: false
+---
+
+
+This notebook builds the analysis dataset (choose radii; assign X/Y and Cat A/B) and then fits the
+model **β ~ X * Cat** with diagnostics and planned contrasts.
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_knit$set(root.dir = "/home/pth/WORKSHOP/ESBJERG2/PUBLICATION")
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, echo = TRUE)
+```
+
+# Data loading
+
+```{r}
+# Input files
+stopifnot(file.exists("OUTPUT/betas_depths_slopes.rds"))
+stopifnot(file.exists("OUTPUT/the_goodies.rds"))
+stopifnot(file.exists("OUTPUT/the_best.rds"))
+
+df_input <- readRDS("OUTPUT/betas_depths_slopes.rds")
+goodies  <- readRDS("OUTPUT/the_goodies.rds")
+best     <- readRDS("OUTPUT/the_best.rds")
+
+# Quick peek
+cat("df_input cols:\n"); print(colnames(df_input))
+cat("\ngoodies cols:\n");  print(colnames(goodies))
+cat("\nbest rows:", nrow(best), "\n")
+```
+
+# User settings (edit here)
+
+```{r}
+# Target radii (km)
+inner_target_km   <- 1
+outer_target_km   <- 14
+match_mode        <- "exact_then_nearest"   # "exact_only" | "nearest_only" | "exact_then_nearest"
+
+# Category metric and rule
+metric_for_Cat    <- "depth_band_median_m"  # or "slope_median"
+coerce_depth_to_positive <- TRUE            # if TRUE and using depth, use depth magnitude (-depth)
+threshold_value   <- 10                     # threshold in metric units (e.g., meters of depth magnitude)
+
+metric_for_Cat    <- "slope_median"  # or "slope_median"
+coerce_depth_to_positive <- TRUE            # if TRUE and using depth, use depth magnitude (-depth)
+threshold_value   <- -0.001                    # threshold in metric units (e.g., meters of depth magnitude)
+
+
+
+A_if              <- "over"                 # "over" => A if metric >= threshold; "under" => A if metric <= threshold
+
+# Optional SE source for weighted analysis (column in 'goodies'), else set to NA_character_
+se_source         <- "errMSL"               # e.g., "errMSL", "errresid", or NA_character_
+```
+
+# Build analysis dataset
+
+```{r}
+## Required columns in df_input
+req_df  <- c("filename","inner_radius_km","outer_radius_km",
+             "slope_median","depth_band_median_m","latitude","longitude")
+missing_df <- setdiff(req_df, names(df_input))
+if (length(missing_df) > 0) stop("df_input is missing columns: ", paste(missing_df, collapse=", "))
+
+## Required in goodies
+if (!all(c("filename","beta1") %in% names(goodies))) stop("goodies must contain 'filename' and 'beta1'")
+
+## Validate SE source if provided
+if (!is.na(se_source) && !(se_source %in% names(goodies))) {
+  warning("se_source '", se_source, "' not found in goodies; proceeding without se_beta.")
+  se_source <- NA_character_
+}
+
+## X membership (property X = in 'best')
+best_set <- unique(best$filename)
+good_set <- unique(goodies$filename)
+
+## Only keep stations present in both goodies and df_input
+fnames <- good_set[good_set %in% df_input$filename]
+if (length(fnames) < length(good_set)) {
+  dropped <- setdiff(good_set, fnames)
+  warning("Dropped ", length(dropped), " filename(s) missing in df_input: ", paste(head(dropped, 10), collapse = ", "),
+          if (length(dropped) > 10) " ..." else "")
+}
+
+## Helper: pick a row for a filename at desired radii
+pick_row_for_file <- function(sub, inner_km, outer_km, mode = "exact_then_nearest") {
+  if (nrow(sub) == 0) return(NULL)
+  exact <- sub[sub$inner_radius_km == inner_km & sub$outer_radius_km == outer_km, , drop = FALSE]
+  if (mode == "exact_only")  return(if (nrow(exact)>0) exact[1,,drop=FALSE] else NULL)
+  if (mode == "nearest_only"){
+    d2 <- (sub$inner_radius_km-inner_km)^2 + (sub$outer_radius_km-outer_km)^2
+    return(sub[which.min(d2), , drop = FALSE])
+  }
+  if (nrow(exact) > 0) exact[1,,drop=FALSE] else {
+    d2 <- (sub$inner_radius_km-inner_km)^2 + (sub$outer_radius_km-outer_km)^2
+    sub[which.min(d2), , drop = FALSE]
+  }
+}
+
+## Main build loop
+out_list <- vector("list", length(fnames))
+dropped_exact <- character(0)
+
+for (i in seq_along(fnames)) {
+  f <- fnames[i]
+  sub <- df_input[df_input$filename == f, , drop = FALSE]
+  sel <- pick_row_for_file(sub, inner_target_km, outer_target_km, match_mode)
+  if (is.null(sel)) { out_list[[i]] <- NULL; next }
+
+  # Track if we used nearest instead of exact
+  if (match_mode != "nearest_only") {
+    if (!(sel$inner_radius_km[1] == inner_target_km && sel$outer_radius_km[1] == outer_target_km))
+      dropped_exact <- c(dropped_exact, f)
+  }
+
+  gi <- goodies[goodies$filename == f, , drop = FALSE]
+  if (nrow(gi) == 0) { out_list[[i]] <- NULL; next }
+
+  beta_val <- gi$beta1[1]
+  se_val   <- if (!is.na(se_source)) {
+    v <- gi[[se_source]][1]
+    if (is.numeric(v) && is.finite(v) && v > 0) v else NA_real_
+  } else NA_real_
+
+  # X/Y assignment
+  XY <- if (f %in% best_set) "X" else "Y"
+
+  # Metric for Cat (with optional depth-to-positive)
+  metric_raw <- sel[[metric_for_Cat]][1]
+  metric_eff <- if (metric_for_Cat == "depth_band_median_m" && isTRUE(coerce_depth_to_positive)) {
+    if (is.numeric(metric_raw) && is.finite(metric_raw)) -metric_raw else NA_real_
+  } else {
+    if (is.numeric(metric_raw) && is.finite(metric_raw))  metric_raw else NA_real_
+  }
+
+  # Cat rule
+  if (A_if == "over") {
+    Cat <- if (is.finite(metric_eff) && metric_eff >= threshold_value) "A" else "B"
+  } else if (A_if == "under") {
+    Cat <- if (is.finite(metric_eff) && metric_eff <= threshold_value) "A" else "B"
+  } else stop("A_if must be 'over' or 'under'")
+
+  out_list[[i]] <- data.frame(
+    filename          = f,
+    beta              = as.numeric(beta_val),
+    se_beta           = as.numeric(se_val),
+    X                 = XY,
+    Cat               = Cat,
+    metric_used       = if (metric_for_Cat == "depth_band_median_m" && isTRUE(coerce_depth_to_positive))
+                          "depth_band_median_m (positive m)" else metric_for_Cat,
+    metric_value      = as.numeric(metric_eff),   # effective metric used for Cat
+    inner_radius_km   = sel$inner_radius_km[1],
+    outer_radius_km   = sel$outer_radius_km[1],
+    latitude          = sel$latitude[1],
+    longitude         = sel$longitude[1],
+    stringsAsFactors  = FALSE
+  )
+}
+
+df <- do.call(rbind, out_list)
+if (is.null(df) || nrow(df) == 0) stop("No rows assembled; check radius settings and inputs.")
+
+# Factors with fixed reference levels
+df$X   <- factor(df$X,   levels = c("Y","X"))
+df$Cat <- factor(df$Cat, levels = c("A","B"))
+
+# If se_beta all NA, drop it so later code doesn't expect weights
+if (!("se_beta" %in% names(df)) || all(is.na(df$se_beta))) df$se_beta <- NULL
+
+# Summary
+cat("\n=== BUILD SUMMARY ===\n")
+cat("Stations in goodies:        ", length(good_set), "\n")
+cat("Stations matched into model:", nrow(df), "\n")
+cat("Chosen radii target:        inner=", inner_target_km, " km, outer=", outer_target_km, " km\n", sep="")
+if (length(dropped_exact) > 0 && match_mode == "exact_then_nearest")
+  cat("Used nearest radii (no exact match) for ", length(unique(dropped_exact)), " station(s).\n", sep = "")
+cat("Metric for Cat:             ", unique(df$metric_used), " (threshold=", threshold_value, ", rule=", A_if, ")\n", sep="")
+cat("X/Y counts:\n"); print(table(df$X,   useNA = "ifany"))
+cat("A/B counts:\n"); print(table(df$Cat, useNA = "ifany"))
+q <- quantile(df$metric_value, c(.1,.25,.5,.75,.9), na.rm = TRUE)
+cat("Metric (effective) quantiles (0.10, 0.25, 0.50, 0.75, 0.90):\n"); print(q)
+
+# Hard stop if Cat is single-level (prevents lm() error) with guidance
+if (nlevels(df$Cat) < 2) {
+  stop(paste0(
+    "Cat has only one level (", paste(levels(df$Cat), collapse=","), "). ",
+    "Adjust 'threshold_value' or 'A_if', or set `coerce_depth_to_positive=TRUE` for depths. ",
+    "For guidance, the median effective metric is ", round(q[3], 3), "."
+  ))
+}
+
+saveRDS(df, file = "OUTPUT/analysis_df.rds")
+```
+
+# Modelling (β ~ X * Cat)
+
+```{r}
+# Packages for inference
+suppressWarnings({
+  suppressMessages({
+    library(emmeans)
+    library(sandwich)
+    library(lmtest)
+  })
+})
+
+# Quick cross-tab
+cat("Counts by X and Cat:\n"); print(addmargins(table(df$X, df$Cat)))
+
+# OLS interaction
+m <- lm(beta ~ X * Cat, data = df)
+
+cat("\n==== OLS summary ====\n"); print(summary(m))
+cat("\n---- Partial F-tests (drop1) ----\n"); print(drop1(m, test = "F"))  # focus on X:Cat
+
+cat("\n---- HC3 robust SEs for OLS ----\n")
+print(coeftest(m, vcov = vcovHC(m, type = "HC3")))
+
+# Planned contrasts
+cat("\n---- Planned contrasts: (A vs B) within each X ----\n")
+em_Cat_by_X <- emmeans(m, ~ Cat | X)
+print(pairs(em_Cat_by_X))
+
+cat("\n---- Planned contrasts: (X vs Y) within each Cat ----\n")
+em_X_by_Cat <- emmeans(m, ~ X | Cat)
+print(pairs(em_X_by_Cat))
+
+# If interaction not supported, show additive model
+p_interaction <- tryCatch(drop1(m, test="F")["X:Cat","Pr(>F)"], error = function(e) NA_real_)
+if (is.finite(p_interaction) && p_interaction >= 0.05) {
+  m_add <- lm(beta ~ X + Cat, data = df)
+  cat("\n==== Interaction not supported (p >= 0.05): additive model ====\n")
+  print(summary(m_add))
+  cat("\n---- HC3 robust SEs (additive) ----\n")
+  print(coeftest(m_add, vcov = vcovHC(m_add, type = "HC3")))
+  cat("\n---- Main-effect contrasts ----\n")
+  print(pairs(emmeans(m_add, ~ Cat)))  # common A vs B
+  print(pairs(emmeans(m_add, ~ X)))    # common X vs Y
+}
+
+# Weighted analysis (if se_beta available)
+has_se <- "se_beta" %in% names(df) && any(is.finite(df$se_beta))
+if (has_se) {
+  w <- ifelse(is.finite(df$se_beta) & df$se_beta > 0, 1/df$se_beta^2, NA_real_)
+  keep <- is.finite(w)
+  if (sum(keep) >= 10) {
+    m_w <- lm(beta ~ X * Cat, data = df[keep, , drop=FALSE], weights = w[keep])
+    cat("\n==== WLS (weights = 1/SE^2) summary ====\n")
+    print(summary(m_w))
+    cat("\n---- Partial F-tests (WLS) ----\n")
+    print(drop1(m_w, test = "F"))
+    cat("\n---- Planned contrasts (WLS): (A vs B) within each X ----\n")
+    print(pairs(emmeans(m_w, ~ Cat | X, weights = "proportional")))
+  } else {
+    cat("\n[Note] se_beta available but too few finite weights for WLS; skipping.\n")
+  }
+}
+
+# Optional separate within-stratum tests (Holm-adjusted)
+cat("\n==== OPTIONAL: two separate tests of Cat within each X stratum (unweighted OLS) ====\n")
+fit_X  <- lm(beta ~ Cat, data = df[df$X == "X",  , drop = FALSE])
+fit_Y  <- lm(beta ~ Cat, data = df[df$X == "Y",  , drop = FALSE])
+p_X    <- summary(fit_X)$coef["CatB","Pr(>|t|)"]
+p_Y    <- summary(fit_Y)$coef["CatB","Pr(>|t|)"]
+padj   <- p.adjust(c(p_X, p_Y), method = "holm")
+names(padj) <- c("Within X='X' (B vs A)", "Within X='Y' (B vs A)")
+print(padj)
+
+cat("\nNOTE:\n- Prefer the single interaction model for primary inference.\n- Use planned contrasts for stratum-specific effects.\n- If β has measurement error, prefer weighted model.\n")
+```
+
+
+# EZ explanation
+```{r}
+## ============================================================
+## Compact summary (prints + saves to OUTPUT/compact_summary.txt)
+## Requires: df, m (OLS). Optionally m_w (WLS) if you ran it.
+## ============================================================
+
+suppressMessages(library(emmeans))
+
+fmt_num <- function(x) sprintf("%.3f", x)
+fmt_p   <- function(p) ifelse(is.finite(p),
+                              ifelse(p < 1e-4, format(p, digits = 2, scientific = TRUE),
+                                     sprintf("%.4f", p)),
+                              "NA")
+
+summarise_model <- function(model, label = "OLS") {
+  # Interaction test
+  dr <- drop1(model, test = "F")
+  Fv <- tryCatch(unname(dr["X:Cat", "F value"]), error = function(e) NA_real_)
+  pv <- tryCatch(unname(dr["X:Cat", "Pr(>F)"]),  error = function(e) NA_real_)
+  df2 <- model$df.residual
+
+  # A vs B within each X
+  ab_df <- as.data.frame(confint(pairs(emmeans(model, ~ Cat | X))))
+  # X vs Y within each Cat
+  xy_df <- as.data.frame(confint(pairs(emmeans(model, ~ X | Cat))))
+
+  # Helpers to pull the rows we want
+  get_row <- function(tab, bycol, byval) tab[tab[[bycol]] == byval, , drop = FALSE]
+
+  AB_Y <- get_row(ab_df, "X",  "Y")
+  AB_X <- get_row(ab_df, "X",  "X")
+  XY_A <- get_row(xy_df, "Cat","A")
+  XY_B <- get_row(xy_df, "Cat","B")
+
+  cat(sprintf("\n[%s] Interaction X×Cat: F(1,%d) = %s, p = %s\n",
+              label, df2, fmt_num(Fv), fmt_p(pv)))
+
+  cat(sprintf("  A vs B within Y:  Δ(A−B) = %s  (95%% CI %s, %s), p = %s\n",
+              fmt_num(AB_Y$estimate), fmt_num(AB_Y$lower.CL), fmt_num(AB_Y$upper.CL), fmt_p(AB_Y$p.value)))
+  cat(sprintf("  A vs B within X:  Δ(A−B) = %s  (95%% CI %s, %s), p = %s\n",
+              fmt_num(AB_X$estimate), fmt_num(AB_X$lower.CL), fmt_num(AB_X$upper.CL), fmt_p(AB_X$p.value)))
+
+  cat(sprintf("  X vs Y within A:  contrast (Y−X) = %s  (95%% CI %s, %s), p = %s\n",
+              fmt_num(XY_A$estimate), fmt_num(XY_A$lower.CL), fmt_num(XY_A$upper.CL), fmt_p(XY_A$p.value)))
+  cat(sprintf("  X vs Y within B:  contrast (Y−X) = %s  (95%% CI %s, %s), p = %s\n",
+              fmt_num(XY_B$estimate), fmt_num(XY_B$lower.CL), fmt_num(XY_B$upper.CL), fmt_p(XY_B$p.value)))
+}
+
+# Build the report
+report_lines <- capture.output({
+  cat("===== Compact summary =====\n")
+  cat("Counts (X by Cat):\n"); print(addmargins(table(df$X, df$Cat)))
+  summarise_model(m, "OLS")
+  if (exists("m_w") && inherits(m_w, "lm")) summarise_model(m_w, "WLS (1/SE^2)")
+})
+
+# Print to console (brief)
+cat(paste(report_lines, collapse = "\n"), "\n")
+
+# Save to file for easy reading later
+dir.create("OUTPUT", showWarnings = FALSE, recursive = TRUE)
+writeLines(report_lines, "OUTPUT/compact_summary.txt")
+cat("Saved summary to OUTPUT/compact_summary.txt\n")
+
+```
+
+```{r}
+## ============================================================
+## Ultra-compact verdict + robust key-contrasts (fixed version)
+## ============================================================
+
+suppressMessages({
+  library(emmeans)
+  library(sandwich) # optional for robust vcov
+})
+
+use_robust_CIs <- TRUE  # set FALSE for model-based SEs/CIs
+
+fmt  <- function(x, d=3) ifelse(is.finite(x), sprintf(paste0("%.", d, "f"), x), "NA")
+fmtp <- function(p) ifelse(is.finite(p),
+                           ifelse(p < 1e-4, format(p, digits = 2, scientific = TRUE),
+                                  sprintf("%.4f", p)),
+                           "NA")
+
+# Interaction tests
+dr_ols <- drop1(m, test = "F")
+F_ols  <- unname(dr_ols["X:Cat","F value"])
+p_ols  <- unname(dr_ols["X:Cat","Pr(>F)"])
+
+has_wls <- exists("m_w") && inherits(m_w, "lm")
+if (has_wls) {
+  dr_wls <- drop1(m_w, test = "F")
+  F_wls  <- unname(dr_wls["X:Cat","F value"])
+  p_wls  <- unname(dr_wls["X:Cat","Pr(>F)"])
+}
+
+# Robust vcov (optional)
+vc <- if (use_robust_CIs) sandwich::vcovHC(m, type = "HC3") else NULL
+
+# Build emmeans grids once (vcov carried inside the grid)
+em_Cat_by_X <- emmeans(m, ~ Cat | X, vcov. = vc)  # A vs B per X
+em_X_by_Cat <- emmeans(m, ~ X   | Cat, vcov. = vc) # Y vs X per Cat
+
+safe_row <- function(emm_grid, by_col, by_val) {
+  # Use summary(..., infer=TRUE) to get estimate, CI, and p-value together
+  tab <- tryCatch(
+    as.data.frame(summary(pairs(emm_grid), infer = c(TRUE, TRUE))),
+    error = function(e) data.frame()
+  )
+  if (!nrow(tab)) {
+    return(data.frame(estimate=NA_real_, lower.CL=NA_real_, upper.CL=NA_real_, p.value=NA_real_))
+  }
+  # Ensure the by-column exists and subset; for 2-level factors there will be a single row per by_val
+  if (!(by_col %in% names(tab))) tab[[by_col]] <- NA_character_
+  sel <- which(as.character(tab[[by_col]]) == by_val)
+  if (!length(sel)) {
+    return(data.frame(estimate=NA_real_, lower.CL=NA_real_, upper.CL=NA_real_, p.value=NA_real_))
+  }
+  tab <- tab[sel[1], , drop = FALSE]
+  # Guarantee required columns exist
+  for (nm in c("estimate","lower.CL","upper.CL","p.value")) if (!(nm %in% names(tab))) tab[[nm]] <- NA_real_
+  tab[, c("estimate","lower.CL","upper.CL","p.value"), drop = FALSE]
+}
+
+# Extract the four contrasts safely
+AB_Y <- safe_row(em_Cat_by_X, "X",   "Y")   # A - B within Y
+AB_X <- safe_row(em_Cat_by_X, "X",   "X")   # A - B within X
+XY_A <- safe_row(em_X_by_Cat, "Cat", "A")   # Y - X within A
+XY_B <- safe_row(em_X_by_Cat, "Cat", "B")   # Y - X within B
+
+# Assemble report text
+report <- c(
+  "===== Compact summary =====",
+  "Counts (X by Cat):",
+  paste(capture.output(print(addmargins(table(df$X, df$Cat)))), collapse = "\n"),
+  "",
+  sprintf("[OLS] Interaction X×Cat: F(1,%s) = %s, p = %s", m$df.residual, fmt(F_ols), fmtp(p_ols)),
+  if (has_wls) sprintf("[WLS (1/SE^2)] Interaction X×Cat: F(1,%s) = %s, p = %s", m_w$df.residual, fmt(F_wls), fmtp(p_wls)),
+  "",
+  "Key contrasts (estimate, 95% CI, p):",
+  sprintf("  A vs B within Y:  %s  (%s, %s), p = %s", fmt(AB_Y$estimate), fmt(AB_Y$lower.CL), fmt(AB_Y$upper.CL), fmtp(AB_Y$p.value)),
+  sprintf("  A vs B within X:  %s  (%s, %s), p = %s", fmt(AB_X$estimate), fmt(AB_X$lower.CL), fmt(AB_X$upper.CL), fmtp(AB_X$p.value)),
+  sprintf("  X vs Y within A (Y−X): %s  (%s, %s), p = %s", fmt(XY_A$estimate), fmt(XY_A$lower.CL), fmt(XY_A$upper.CL), fmtp(XY_A$p.value)),
+  sprintf("  X vs Y within B (Y−X): %s  (%s, %s), p = %s", fmt(XY_B$estimate), fmt(XY_B$lower.CL), fmt(XY_B$upper.CL), fmtp(XY_B$p.value))
+)
+
+cat(paste(report, collapse = "\n"), "\n")
+
+# Save text + a CSV (always 4 rows; NAs if not estimable)
+dir.create("OUTPUT", showWarnings = FALSE, recursive = TRUE)
+writeLines(report, "OUTPUT/compact_summary.txt")
+
+contrasts_out <- rbind(
+  data.frame(group="A_vs_B_within_Y", estimate=AB_Y$estimate, lo=AB_Y$lower.CL, hi=AB_Y$upper.CL, p=AB_Y$p.value),
+  data.frame(group="A_vs_B_within_X", estimate=AB_X$estimate, lo=AB_X$lower.CL, hi=AB_X$upper.CL, p=AB_X$p.value),
+  data.frame(group="Y_minus_X_within_A", estimate=XY_A$estimate, lo=XY_A$lower.CL, hi=XY_A$upper.CL, p=XY_A$p.value),
+  data.frame(group="Y_minus_X_within_B", estimate=XY_B$estimate, lo=XY_B$lower.CL, hi=XY_B$upper.CL, p=XY_B$p.value)
+)
+write.csv(contrasts_out, "OUTPUT/contrasts_summary.csv", row.names = FALSE)
+cat("Saved to OUTPUT/compact_summary.txt and OUTPUT/contrasts_summary.csv\n")
+
+
+```
+
+

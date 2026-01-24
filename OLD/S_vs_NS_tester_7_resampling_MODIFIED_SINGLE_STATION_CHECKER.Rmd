@@ -1,0 +1,320 @@
+---
+title: "R Notebook"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+# Required Libraries
+# Required Libraries
+library(extRemes)     # for fevd()
+library(data.table)
+library(dplyr)
+library(stats)
+library(MASS)         # for rlm()
+library(boot)         # for boot.ci (optional)
+
+# Create directories if not exist
+dir.create("FIGURES", showWarnings = FALSE)
+dir.create("RESULTS", showWarnings = FALSE)
+dir.create("OUTPUT", showWarnings = FALSE)
+dir.create("OUTPUT/BETAS", showWarnings = FALSE)
+#
+N_boot <- 3333
+```
+
+```{r}
+clip_percentile <- function(data, lower = 2, upper = 97) {
+  quantiles <- quantile(data, probs = c(lower, upper) / 100)
+  return(data[data >= quantiles[1] & data <= quantiles[2]])
+}
+```
+
+```{r}
+fit_stationary_gev <- function(data) {
+  fit <- fevd(data, type = "GEV", method = "MLE")
+  sum_fit <- summary(fit)
+  shape <- fit$results$par["shape"]
+  loc <- fit$results$par["location"]
+  scale <- fit$results$par["scale"]
+  loglik <- -sum_fit$nllh
+  aic <- sum_fit$AIC
+  bic <- sum_fit$BIC
+  list(shape = shape, loc = loc, scale = scale, loglik = loglik, aic = aic, bic = bic)
+}
+
+fit_nonstationary_gev <- function(data, covariate) {
+  df <- data.frame(y = data, x = covariate)
+  fit <- fevd(y, data = df, location.fun = ~ x, type = "GEV", method = "MLE")
+  sum_fit <- summary(fit)
+  shape <- fit$results$par["shape"]
+  beta0 <- fit$results$par["mu0"]
+  beta1 <- fit$results$par["mu1"]
+  scale <- fit$results$par["scale"]
+  loglik <- -sum_fit$nllh
+  aic <- sum_fit$AIC
+  bic <- sum_fit$BIC
+  
+  list(shape = shape, beta0 = beta0, beta1 = beta1, scale = scale, loglik = loglik, aic = aic, bic = bic)
+}
+```
+
+```{r}
+save_middle_panel <- function(covariate, residuals, outname, name_clean) {
+  png(file = file.path("FIGURES/JUSTTHEMIDDLE3panelONE", sprintf("%s_middle_panel.png", outname)), width = 600, height = 600, res = 150)
+  par(mar = c(4, 5, 2, 1), mgp = c(2.5, 1, 0), cex.axis = 1.4, cex.lab = 1.6)
+  
+  fit_lm2 <- lm(residuals ~ covariate)
+  newx2 <- data.frame(covariate = seq(min(covariate), max(covariate), length.out = 100))
+  preds_lm2 <- predict(fit_lm2, newdata = newx2, se.fit = TRUE)
+  lower2 <- preds_lm2$fit - 1.96 * preds_lm2$se.fit
+  upper2 <- preds_lm2$fit + 1.96 * preds_lm2$se.fit
+  
+  plot(covariate, residuals, pch = 19, col = rgb(0, 0, 0, 0.5),
+       main = name_clean, xlab = "MSL [cm]", ylab = "Residual [cm]",
+       ylim = range(c(residuals, lower2, upper2), na.rm = TRUE))
+  polygon(c(newx2$covariate, rev(newx2$covariate)),
+          c(lower2, rev(upper2)),
+          col = rgb(1, 0, 0, 0.2), border = NA)
+  lines(newx2$covariate, preds_lm2$fit, col = "red", lwd = 2)
+  dev.off()
+}
+```
+
+
+
+
+```{r}
+plot_3panel_summary <- function(df, covariate, residuals, beta1_samples, outname, name_clean) {
+  
+  png(file = file.path("FIGURES", sprintf("%s_3panel_bootstrap_beta1_baseR.png", outname)), width = 1800, height = 600, res = 150)
+  #  par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
+  par(mfrow = c(1, 3), mar = c(4, 5, 2, 1), mgp = c(2.5, 1, 0), cex.axis = 1.4, cex.lab = 1.6)
+  # Panel 1: rlm fit but CI from lm
+  fit_rlm1 <- rlm(mean_sea_level ~ storm_year, data = df)
+  fit_lm1 <- lm(mean_sea_level ~ storm_year, data = df)
+  newx <- data.frame(storm_year = seq(min(df$storm_year), max(df$storm_year), length.out = 100))
+  preds_lm <- predict(fit_lm1, newdata = newx, se.fit = TRUE)
+  lower <- preds_lm$fit - 1.96 * preds_lm$se.fit
+  upper <- preds_lm$fit + 1.96 * preds_lm$se.fit
+  try({
+    plot(df$storm_year, df$mean_sea_level, pch = 19, col = "blue",
+         main = "", xlab = "Year", ylab = "MSL [cm]",
+         ylim = range(c(df$mean_sea_level, lower, upper), na.rm = TRUE))
+    polygon(c(newx$storm_year, rev(newx$storm_year)),
+            c(lower, rev(upper)),
+            col = rgb(1, 0, 0, 0.2), border = NA)
+    lines(newx$storm_year, predict(fit_rlm1, newdata = newx), col = "red", lwd = 2)
+  })
+  # Panel 2: Residuals vs MSL with rlm fit and CI from lm
+  fit_rlm2 <- rlm(residuals ~ covariate)
+  fit_lm2 <- lm(residuals ~ covariate)
+  fit_rlm2 <- fit_lm2 # This is a work-around for plotting purposes.
+  newx2 <- data.frame(covariate = seq(min(covariate), max(covariate), length.out = 100))
+  preds_lm2 <- predict(fit_lm2, newdata = newx2, se.fit = TRUE)
+  lower2 <- preds_lm2$fit - 1.96 * preds_lm2$se.fit
+  upper2 <- preds_lm2$fit + 1.96 * preds_lm2$se.fit
+  try({
+    plot(covariate, residuals, pch = 19, col = rgb(0, 0, 0, 0.5),
+         main = name_clean, xlab = "MSL [cm]", ylab = "Residual [cm]",
+         ylim = range(c(residuals, lower2, upper2), na.rm = TRUE))
+    polygon(c(newx2$covariate, rev(newx2$covariate)),
+            c(lower2, rev(upper2)),
+            col = rgb(1, 0, 0, 0.2), border = NA)
+    lines(newx2$covariate, predict(fit_rlm2, newdata = newx2), col = "red", lwd = 2)
+  })
+  # Panel 3: Histogram of beta1_samples
+  
+  breaks_fixed <- seq(-2, 6, by = 0.05) 
+  try({
+    # Plot histogram with forced bins and trimmed beta
+    beta1_trimmed <- beta1_samples[beta1_samples >= quantile(beta1_samples, 0.02) &
+                                     beta1_samples <= quantile(beta1_samples, 0.97)]
+    
+    hist(beta1_trimmed,  col = "gray", border = "black",
+         main = "", xlab = "β [cm/cm]")
+    
+    # Red vertical line at 0
+    abline(v = 0, col = "red", lwd = 2) 
+  })
+  dev.off()
+  
+}
+```
+
+
+```{r}
+compare_gev_models <- function(residuals, covariate) {
+  fit_s <- fit_stationary_gev(residuals)
+  fit_ns <- fit_nonstationary_gev(residuals, covariate)
+  LRT_stat <- 2 * (fit_ns$loglik - fit_s$loglik)
+  p_val <- pchisq(LRT_stat, df = 1, lower.tail = FALSE)
+  
+  list(Stationary = fit_s, NonStationary = fit_ns,
+       LRT_statistic = LRT_stat, LRT_p_value = p_val)
+}
+```
+
+
+```{r}
+interpret_model_comparison <- function(results) {
+  cat(sprintf("AIC_s: %.2f, BIC_s: %.2f
+", results$Stationary$aic, results$Stationary$bic))
+  cat(sprintf("AIC_ns: %.2f, BIC_ns: %.2f
+", results$NonStationary$aic, results$NonStationary$bic))
+  cat(sprintf("LRT = %.2f, p = %.6f
+", results$LRT_statistic, results$LRT_p_value))
+}
+```
+
+```{r}
+gogetslopes <- function(df)
+{
+  #----------------
+  rlm_fit_MS_vs_yr  <- rlm(mean_sea_level ~ storm_year, data=df)
+  # Summary gives coefficients and standard errors
+  model_summary <- summary(rlm_fit_MS_vs_yr)
+  # Coefficients table
+  coef_table <- model_summary$coefficients
+  # Extract slope and its standard error
+  slope1 <- coef_table["storm_year", "Value"]
+  slope_se1 <- coef_table["storm_year", "Std. Error"]
+  #----------------      
+  rlm_fit_res_vs_MS <- rlm(max_residual ~ mean_sea_level, data=df)
+  # Summary gives coefficients and standard errors
+  model_summary <- summary(rlm_fit_res_vs_MS)
+  # Coefficients table
+  coef_table <- model_summary$coefficients
+
+  # Extract slope and its standard error
+  slope2 <- coef_table["mean_sea_level", "Value"]
+  slope_se2 <- coef_table["mean_sea_level", "Std. Error"]
+  #..............
+  values <- (c(slope1,slope_se1,slope2,slope_se2))
+  
+  return(values)
+}
+```
+
+
+
+
+```{r}
+
+# === Main Processing ===
+input_files <- list.files("OUTPUT/ANNUALS2", pattern = "_annual.csv$", full.names = TRUE)
+#input_files <- input_files[1]
+summary_file <- "RESULTS/collected_S_vs_NS_test_results_RENAME_or_LOOSE.txt"
+if (file.exists(summary_file)) file.remove(summary_file)
+
+write("filename,AIC_s,BIC_s,AIC_ns,BIC_ns,LRT_stat,LRT_p,beta1,slope_MSL,errMSL,slope_res,errresid", file = summary_file)
+
+for (filepath in input_files) {
+  tryCatch({
+    df <- fread(filepath)
+    if (!all(c("storm_year", "max_residual", "mean_sea_level") %in% names(df))) {
+      cat("Skipping", filepath, "- incorrect format ")
+      next
+    }
+    
+    df <- na.omit(df)
+    residuals <- df$max_residual
+    covariate <- df$mean_sea_level - mean(df$mean_sea_level)
+ 
+    results <- compare_gev_models(residuals, covariate)
+    interpret_model_comparison(results)
+    
+    outname <- tools::file_path_sans_ext(basename(filepath))
+    name_clean <- tools::toTitleCase(gsub("_", " ", sub("-.*", "", outname)))
+    
+    safe_val <- function(x) ifelse(is.finite(x), x, NA_real_)
+    # get some regression results
+    slopes <- gogetslopes(df)
+    
+ 
+    line <- sprintf("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.9f,%.6f,%.9f,%.9f,%.9f,%.9f",
+                    outname,
+                    safe_val(results$Stationary$aic),
+                    safe_val(results$Stationary$bic),
+                    safe_val(results$NonStationary$aic),
+                    safe_val(results$NonStationary$bic),
+                    safe_val(results$LRT_statistic),
+                    safe_val(results$LRT_p_value),
+                    safe_val(results$NonStationary$beta1),
+                    safe_val(slopes[1]),
+                    safe_val(slopes[2]),
+                    safe_val(slopes[3]),
+                    safe_val(slopes[4]))
+    write(line, file = summary_file, append = TRUE)
+ 
+    set.seed(123)
+    n_bootstrap <- N_boot
+    beta1_samples <- numeric(0)
+    
+    for (i in seq_len(n_bootstrap)) {
+      idx <- sample(seq_along(residuals), replace = TRUE)
+      res_r <- residuals[idx]
+      cov_r <- covariate[idx]
+      boot_try <- tryCatch({
+        fit_r <- fit_nonstationary_gev(res_r, cov_r)
+        fit_r$beta1
+      }, error = function(e) NA)
+      
+      if (!is.na(boot_try)) {
+        beta1_samples <- c(beta1_samples, boot_try)
+      }
+    }
+    beta1_samples <- unname(beta1_samples)
+    fwrite(data.table(beta1_samples), file = sprintf("OUTPUT/BETAS/%s_beta1_samples.csv", outname), col.names = FALSE)
+    cat("Number of exact zeros:", sum(abs(beta1_samples) < 1e-8), "
+")
+    try(plot_3panel_summary(df, covariate, residuals, beta1_samples, outname, name_clean), silent = TRUE)
+    try(save_middle_panel(covariate, residuals, outname, name_clean), silent = TRUE)
+    cat(sprintf("✔ Processed %s
+", filepath))
+  }, error = function(e) {
+    cat(sprintf("✖ Failed on %s: %s
+", filepath, e$message))
+  })
+}
+
+```
+
+
+# merge to add lon/lat/country
+```{r}
+merge_metadata_files <- function(file1, file2, output_file) {
+  # Read the two files
+  df1 <- read.csv(file1, stringsAsFactors = FALSE)
+  df2 <- read.csv(file2, stringsAsFactors = FALSE)
+ 
+   # Strip '_annual' from filenames in file1
+  df1$match_name <- sub("_annual$", "", df1$filename)
+  
+  # Check that all match_names exist in df2$filename
+  unmatched <- setdiff(df1$match_name, df2$filename)
+  if (length(unmatched) > 0) {
+    stop("These stripped filenames in file1 are missing from file2:\n", paste(unmatched, collapse = ", "))
+  }
+  
+  # Merge by stripped name
+  merged <- merge(df1, df2, by.x = "match_name", by.y = "filename", all.x = TRUE, sort = FALSE)
+  
+  # Remove the match_name column and write result
+  merged$match_name <- NULL
+  merged$station_name <- NULL
+  write.csv(merged, file = output_file, row.names = FALSE)
+  message("✅ Merge completed and written to: ", output_file)}
+
+
+file1 <- summary_file 
+file2 <- "DATA/gesla_station_index.csv"
+merge_metadata_files(file1, file2, "RESULTS/merged.csv")
+```
+
+
+

@@ -1,0 +1,67 @@
+---
+title: "Fixer of GESLA offsets"
+output: html_notebook
+---
+
+Fix sudden offsets in GESAL data
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+library(readr)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+
+# --- File path ---
+filepath <- "~/GESLA/aburatsubo-gs01-jpn-jodc_giaj"
+
+# --- Read and preprocess ---
+df <- read.csv(filepath, sep = "", header = FALSE, skip = 41,
+               colClasses = c("character", "character", "numeric", "integer", "integer"))
+colnames(df) <- c("date", "time", "height", "qc_flag", "use_flag")
+
+df <- df %>%
+  filter(use_flag == 1, !is.na(height)) %>%
+  mutate(datetime = ymd_hms(paste(date, time), tz = "UTC"))
+
+# --- Define the date window ---
+start_date <- as.POSIXct("1995-01-01", tz = "UTC")
+end_date   <- as.POSIXct("2000-01-01", tz = "UTC")
+
+# --- Filter for plotting segment ---
+df_sub <- df %>%
+  filter(datetime >= start_date, datetime < end_date)
+
+# --- Plot ORIGINAL data ---
+p1 <- ggplot(df_sub, aes(x = datetime, y = height)) +
+  geom_line(alpha = 0.8, color = "firebrick") +
+  labs(title = "Original Sea Level at Aburatsubo (1995–1999)",
+       x = "Date", y = "Sea Level (m)") +
+  theme_minimal()
+
+print(p1)
+
+# --- Apply correction: subtract 2 m after Dec 31  1996 ---
+cutoff <- as.POSIXct("1996-12-31 23:59:59", tz = "UTC")
+df_corrected <- df %>%
+  mutate(
+    height_corrected = if_else(datetime > cutoff, height - 0.8, height)
+  )
+
+df_corrected_sub <- df_corrected %>%
+  filter(datetime >= start_date, datetime < end_date)
+
+# --- Plot CORRECTED data ---
+p2 <- ggplot(df_corrected_sub, aes(x = datetime, y = height_corrected)) +
+  geom_line(alpha = 0.8, color = "steelblue") +
+  labs(title = "Corrected Sea Level at Aburatsubo (1995–1999)",
+       x = "Date", y = "Sea Level (m, corrected)") +
+  theme_minimal()
+
+print(p2)
+
+
+```
+
+ 

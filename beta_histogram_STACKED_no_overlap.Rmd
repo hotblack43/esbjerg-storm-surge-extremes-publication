@@ -1,0 +1,98 @@
+---
+title: "Stacked Histogram: goodies (blue) minus best-overlap; best (red) stacked"
+output: pdf_document
+---
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION")
+
+# --------------------
+# Load data
+# --------------------
+best    <- readRDS('OUTPUT/the_best.rds')
+goodies <- readRDS('OUTPUT/the_goodies.rds')
+
+# --------------------
+# Validate required columns
+# --------------------
+need_cols <- function(df, nm) { all(nm %in% names(df)) }
+if (!need_cols(best, c('filename','beta')))   stop("'best' must have columns: filename, beta")
+if (!need_cols(goodies, c('filename','beta'))) stop("'goodies' must have columns: filename, beta")
+
+# --------------------
+# Remove 'best' rows from 'goodies' based on filename
+# --------------------
+overlap_idx <- which(goodies$filename %in% best$filename)
+n_overlap   <- length(overlap_idx)
+
+goodies_wo  <- if (n_overlap > 0) goodies[-overlap_idx, , drop=FALSE] else goodies
+
+# Optional console info
+message(sprintf("Removed %d overlapping filenames from goodies; remaining goodies rows: %d",
+                n_overlap, nrow(goodies_wo)))
+
+# --------------------
+# Extract beta vectors
+# --------------------
+b_goodies <- as.numeric(goodies_wo$beta)
+b_best    <- as.numeric(best$beta)
+
+b_goodies <- b_goodies[is.finite(b_goodies)]
+b_best    <- b_best[is.finite(b_best)]
+
+all_vals <- c(b_goodies, b_best)
+if (length(all_vals) == 0) stop("No finite beta values found after de-duplication.")
+
+# --------------------
+# Common binning (same width for both datasets)
+# --------------------
+binwidth <- 0.2   # adjust if desired
+
+xmin <- floor(min(all_vals) / binwidth) * binwidth
+xmax <- ceiling(max(all_vals) / binwidth) * binwidth
+if (xmax <= xmin) { xmax <- xmin + binwidth }  # guard for degenerate ranges
+breaks <- seq(xmin, xmax, by = binwidth)
+
+# Histograms with shared breaks (left-closed, right-open)
+h_blue <- hist(b_goodies, breaks = breaks, include.lowest = TRUE, right = FALSE, plot = FALSE)
+h_red  <- hist(b_best,    breaks = breaks, include.lowest = TRUE, right = FALSE, plot = FALSE)
+
+# --------------------
+# Plot stacked with crosshatching
+# --------------------
+if (!dir.exists("FIGURES")) dir.create("FIGURES", recursive = TRUE)
+png("FIGURES/beta_histograms.png", width = 1400, height = 900, res = 150)
+
+ylim <- c(0, max(h_blue$counts + h_red$counts))
+
+plot(NA, xlab = expression(beta), ylab = "N",
+     xlim = range(breaks), ylim = ylim,
+     main = expression("Histograms of " * beta))
+
+# Blue (goodies minus overlap) at bottom with crosshatch -45 degrees
+for (i in seq_along(h_blue$counts)) {
+  xleft  <- h_blue$breaks[i]
+  xright <- h_blue$breaks[i + 1]
+  y0 <- 0
+  y1 <- h_blue$counts[i]
+  rect(xleft, y0, xright, y1, col = "blue", border = "blue", density = 20, angle = -45)
+}
+
+# Red (best) stacked on top with crosshatch +45 degrees
+for (i in seq_along(h_red$counts)) {
+  xleft  <- h_red$breaks[i]
+  xright <- h_red$breaks[i + 1]
+  y1 <- h_blue$counts[i]
+  y2 <- y1 + h_red$counts[i]
+  rect(xleft, y1, xright, y2, col = "red", border = "red", density = 20, angle = 45)
+}
+
+legend("topright",
+       legend = c("Stationary", "Non-stationary"),
+       fill = c("blue", "red"), border = c("blue", "red"),
+       density = c(20, 20), angle = c(-45, 45),
+       bty = "n")
+
+dev.off()
+```

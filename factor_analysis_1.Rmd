@@ -1,0 +1,464 @@
+---
+title: "R Notebook"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+ 
+
+```{r setup}
+rm(list=ls())
+knitr::opts_knit$set(root.dir = "/home/pth/WORKSHOP/ESBJERG2/PUBLICATION")
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+
+# data in
+df_input <- readRDS('OUTPUT/betas_depths_slopes.rds')
+df <- df_input
+colnames(df)
+best <- readRDS('OUTPUT/the_best.rds')
+goodies <- readRDS('OUTPUT/the_goodies.rds')
+colnames(goodies)
+ 
+
+ 
+> ## ------------------
+> ## HELPER: pick row at desired radii (unchanged)
+> ## ------------------
+> pick_row_for_file <- function(sub, inner_km, outer_km, mode = "exact_then_nearest") {
++   if (nrow(sub) == 0) return(NULL)
++   exact <- sub[sub$inner_radius_km == inner_km & sub$outer_radius_km == outer_km, , drop = FALSE]
++   if (mode == "exact_only")  return(if (nrow(exact)>0) exact[1,,drop=FALSE] else NULL)
++   if (mode == "nearest_only"){ d2 <- (sub$inner_radius_km-inner_km)^2 + (sub$outer_radius_km-outer_km)^2; return(sub[which.min(d2), , drop = FALSE]) }
++   if (nrow(exact) > 0) exact[1,,drop=FALSE] else { d2 <- (sub$inner_radius_km-inner_km)^2 + (sub$outer_radius_km-outer_km)^2; sub[which.min(d2), , drop = FALSE] }
++ }
+> 
+> ## ------------------
+> ## MAIN LOOP
+> ## ------------------
+> out_list <- vector("list", length(fnames))
+> dropped_exact <- character(0)
+> 
+> for (i in seq_along(fnames)) {
++   f <- fnames[i]
++   sub <- df[df$filename == f, , drop = FALSE]
++   sel <- pick_row_for_file(sub, inner_target_km, outer_target_km, match_mode)
++   if (is.null(sel)) { out_list[[i]] <- NULL; next }
++ 
++   if (match_mode != "nearest_only") {
++     if (!(sel$inner_radius_km[1] == inner_target_km && sel$outer_radius_km[1] == outer_target_km))
++       dropped_exact <- c(dropped_exact, f)
++   }
++ 
++   gi <- goodies[goodies$filename == f, , drop = FALSE]
++   if (nrow(gi) == 0) { out_list[[i]] <- NULL; next }
++ 
++   beta_val <- gi$beta1[1]
++   se_val   <- if (!is.na(se_source)) { v <- gi[[se_source]][1]; if (is.numeric(v) && is.finite(v) && v > 0) v else NA_real_ } else NA_real_
++ 
++   ## X/Y assignment
++   XY <- if (f %in% best_set) "X" else "Y"
++ 
++   ## Metric for Cat (with optional depth-to-positive)
++   metric_raw <- sel[[metric_for_Cat]][1]
++   metric_eff <- if (metric_for_Cat == "depth_band_median_m" && isTRUE(coerce_depth_to_positive)) {
++     if (is.numeric(metric_raw) && is.finite(metric_raw)) -metric_raw else NA_real_
++   } else {
++     if (is.numeric(metric_raw) && is.finite(metric_raw))  metric_raw else NA_real_
++   }
++ 
++   ## Cat rule
++   if (A_if == "over") {
++     Cat <- if (is.finite(metric_eff) && metric_eff >= threshold_value) "A" else "B"
++   } else if (A_if == "under") {
++     Cat <- if (is.finite(metric_eff) && metric_eff <= threshold_value) "A" else "B"
++   } else stop("A_if must be 'over' or 'under'")
++ 
++   out_list[[i]] <- data.frame(
++     filename          = f,
++     beta              = as.numeric(beta_val),
++     se_beta           = as.numeric(se_val),
++     X                 = XY,
++     Cat               = Cat,
++     metric_used       = if (metric_for_Cat == "depth_band_median_m" && isTRUE(coerce_depth_to_positive))
++                           "depth_band_median_m (positive m)"
++                         else metric_for_Cat,
++     metric_value      = as.numeric(metric_eff),   # <- effective metric used for Cat
++     inner_radius_km   = sel$inner_radius_km[1],
++     outer_radius_km   = sel$outer_radius_km[1],
++     latitude          = sel$latitude[1],
++     longitude         = sel$longitude[1],
++     stringsAsFactors  = FALSE
++   )
++ }
+> 
+> df_model <- do.call(rbind, out_list)
+> if (is.null(df_model) || nrow(df_model) == 0) stop("No rows assembled for df_model; check radius settings and inputs.")
+> 
+> df_model$X   <- factor(df_model$X,   levels = c("Y","X"))
+> df_model$Cat <- factor(df_model$Cat, levels = c("A","B"))
+> if (!("se_beta" %in% names(df_model)) || all(is.na(df_model$se_beta))) df_model$se_beta <- NULL
+> 
+> ## Summary + sanity checks
+> cat("\n=== BUILD SUMMARY ===\n")
+
+=== BUILD SUMMARY ===
+> cat("Stations in goodies:        ", length(good_set), "\n")
+Stations in goodies:         235 
+> cat("Stations matched into model:", nrow(df_model), "\n")
+Stations matched into model: 205 
+> cat("Chosen radii target:        inner=", inner_target_km, " km, outer=", outer_target_km, " km\n", sep="")
+Chosen radii target:        inner=1 km, outer=14 km
+> if (length(dropped_exact) > 0 && match_mode == "exact_then_nearest")
++   cat("Used nearest radii (no exact match) for ", length(unique(dropped_exact)), " station(s).\n", sep = "")
+Used nearest radii (no exact match) for 17 station(s).
+> cat("Metric for Cat:             ", unique(df_model$metric_used), " (threshold=", threshold_value, ", rule=", A_if, ")\n", sep="")
+Metric for Cat:             depth_band_median_m (positive m) (threshold=20, rule=over)
+> cat("X/Y counts:\n"); print(table(df_model$X,   useNA = "ifany"))
+X/Y counts:
+
+  Y   X 
+175  30 
+> cat("A/B counts:\n"); print(table(df_model$Cat, useNA = "ifany"))
+A/B counts:
+
+  A   B 
+ 82 123 
+> 
+> q <- quantile(df_model$metric_value, c(.1,.25,.5,.75,.9), na.rm = TRUE)
+> cat("Metric (effective) quantiles (0.10, 0.25, 0.50, 0.75, 0.90):\n"); print(q)
+Metric (effective) quantiles (0.10, 0.25, 0.50, 0.75, 0.90):
+  10%   25%   50%   75%   90% 
+  2.0   5.0  14.0  32.0 102.8 
+> 
+> ## Hard stop if Cat is single-level (prevents lm() error) with guidance:
+> if (nlevels(df_model$Cat) < 2) {
++   stop(paste0(
++     "Cat has only one level (", paste(levels(df_model$Cat), collapse=","), "). ",
++     "Adjust 'threshold_value' or 'A_if', or set `coerce_depth_to_positive=TRUE` for depths. ",
++     "For guidance, the median effective metric is ", round(q[3], 3), "."
++   ))
++ }
+> 
+> saveRDS(df_model, file = "OUTPUT/analysis_df.rds")
+> df <- df_model
+
+## ------------------
+## HELPER: select a row for a filename at desired radii
+## ------------------
+pick_row_for_file <- function(sub, inner_km, outer_km, mode = "exact_then_nearest") {
+  ## sub: subset of df for a single filename
+  if (nrow(sub) == 0) return(NULL)
+
+  exact <- sub[sub$inner_radius_km == inner_km & sub$outer_radius_km == outer_km, , drop = FALSE]
+
+  if (mode == "exact_only") {
+    if (nrow(exact) > 0) return(exact[1,,drop=FALSE])
+    return(NULL)
+  }
+
+  if (mode == "nearest_only") {
+    d2 <- (sub$inner_radius_km - inner_km)^2 + (sub$outer_radius_km - outer_km)^2
+    return(sub[which.min(d2), , drop = FALSE])
+  }
+
+  ## exact_then_nearest
+  if (nrow(exact) > 0) {
+    return(exact[1,,drop=FALSE])
+  } else {
+    d2 <- (sub$inner_radius_km - inner_km)^2 + (sub$outer_radius_km - outer_km)^2
+    return(sub[which.min(d2), , drop = FALSE])
+  }
+}
+
+## ------------------
+## MAIN LOOP (base R, no dplyr)
+## ------------------
+n <- length(fnames)
+out_list <- vector("list", n)
+dropped_exact <- character(0)
+
+for (i in seq_len(n)) {
+  f <- fnames[i]
+  sub <- df[df$filename == f, , drop = FALSE]
+
+  sel <- pick_row_for_file(sub, inner_target_km, outer_target_km, match_mode)
+
+  if (is.null(sel)) {
+    ## No usable row found
+    out_list[[i]] <- NULL
+    next
+  }
+
+  ## If exact match was requested but only nearest available, track it
+  if (match_mode != "nearest_only") {
+    exact_hit <- sel$inner_radius_km == inner_target_km && sel$outer_radius_km == outer_target_km
+    if (!exact_hit) dropped_exact <- c(dropped_exact, f)
+  }
+
+  ## Outcome beta from goodies
+  gi <- goodies[goodies$filename == f, , drop = FALSE]
+  if (nrow(gi) == 0) {
+    out_list[[i]] <- NULL
+    next
+  }
+
+  beta_val <- gi$beta1[1]
+  se_val   <- if (!is.na(se_source)) {
+    v <- gi[[se_source]][1]
+    if (is.numeric(v) && is.finite(v) && v > 0) v else NA_real_
+  } else {
+    NA_real_
+  }
+
+  ## X/Y
+  XY <- if (f %in% best_set) "X" else "Y"
+
+  ## Cat A/B from chosen metric and threshold
+  metric_val <- sel[[metric_for_Cat]][1]
+  if (!is.numeric(metric_val) || !is.finite(metric_val)) metric_val <- NA_real_
+
+  if (A_if == "over") {
+    Cat <- if (is.finite(metric_val) && metric_val >= threshold_value) "A" else "B"
+  } else if (A_if == "under") {
+    Cat <- if (is.finite(metric_val) && metric_val <= threshold_value) "A" else "B"
+  } else {
+    stop("A_if must be 'over' or 'under'")
+  }
+
+  out_list[[i]] <- data.frame(
+    filename          = f,
+    beta              = as.numeric(beta_val),
+    se_beta           = as.numeric(se_val),
+    X                 = XY,
+    Cat               = Cat,
+    metric_used       = metric_for_Cat,
+    metric_value      = as.numeric(metric_val),
+    inner_radius_km   = sel$inner_radius_km[1],
+    outer_radius_km   = sel$outer_radius_km[1],
+    latitude          = sel$latitude[1],
+    longitude         = sel$longitude[1],
+    stringsAsFactors  = FALSE
+  )
+}
+
+## Bind and clean
+df_model <- do.call(rbind, out_list)
+if (is.null(df_model) || nrow(df_model) == 0) {
+  stop("No rows assembled for df_model; check radius settings and inputs.")
+}
+
+## Factors with fixed reference levels to match the modelling code
+df_model$X   <- factor(df_model$X,   levels = c("Y","X"))
+df_model$Cat <- factor(df_model$Cat, levels = c("A","B"))
+
+## If se_beta is all NA, drop the column so downstream code won’t expect weights
+if (!("se_beta" %in% names(df_model)) || all(is.na(df_model$se_beta))) {
+  df_model$se_beta <- NULL
+}
+
+## Summary
+cat("\n=== BUILD SUMMARY ===\n")
+cat("Stations in goodies:        ", length(good_set), "\n")
+cat("Stations matched into model:", nrow(df_model), "\n")
+cat("Chosen radii target:        inner=", inner_target_km, " km, outer=", outer_target_km, " km\n", sep="")
+if (length(dropped_exact) > 0 && match_mode == "exact_then_nearest") {
+  cat("Used nearest radii (no exact match) for ", length(unique(dropped_exact)),
+      " station(s).\n", sep = "")
+}
+cat("Metric for Cat:             ", metric_for_Cat, " (threshold=", threshold_value, 
+    ", rule=", A_if, ")\n", sep = "")
+cat("X/Y counts:                 \n"); print(table(df_model$X, useNA = "ifany"))
+cat("A/B counts:                 \n"); print(table(df_model$Cat, useNA = "ifany"))
+rng <- range(df_model$metric_value, na.rm = TRUE)
+cat("Metric value range:         [", format(rng[1]), ", ", format(rng[2]), "]\n", sep="")
+
+## Save and expose to the modelling chunk
+saveRDS(df_model, file = "OUTPUT/analysis_df.rds")
+df <- df_model   # so the earlier modelling code (which expects 'df') can be run next
+
+```
+
+
+
+
+
+```{r}
+## ------------------------------------------------------------
+## ANALYSIS OF STATION-LEVEL β WITH X × Cat INTERACTION
+## ------------------------------------------------------------
+## EXPECTED DATA FRAME:
+##   df$beta    : numeric station-level outcome (your β per station)
+##   df$X       : factor or character with two values, e.g. "X" (has property) and "Y" (does not)
+##   df$Cat     : factor or character with two values, e.g. "A" and "B"
+## OPTIONAL:
+##   df$se_beta : numeric standard error for β_i (if β is itself an estimate)
+##
+## The script:
+##   1) coerces X and Cat to factors with reference levels Y and A
+##   2) fits β ~ X * Cat (interaction)
+##   3) tests the interaction (and main effects) via F-tests
+##   4) provides robust HC3 SEs (optional)
+##   5) if se_beta is present, also fits a weighted model (WLS) and a random-effects meta-regression
+##   6) reports planned contrasts: A vs B within X and within Y
+##   7) (optional) performs the two separate within-stratum tests and multiplies-adjusts p-values
+##
+## ------------------------------------------------------------
+
+## Uncomment if you need to install packages:
+# install.packages("emmeans")
+# install.packages("sandwich")
+# install.packages("lmtest")
+# install.packages("metafor")   # only if you’ll run the meta-regression
+
+suppressWarnings({
+  suppressMessages({
+    library(emmeans)
+    library(sandwich)
+    library(lmtest)
+  })
+})
+
+## -----------------
+## 0) Data hygiene
+## -----------------
+stopifnot(exists("df"))
+needed <- c("beta","X","Cat")
+if (!all(needed %in% names(df))) {
+  stop("df must contain columns: ", paste(needed, collapse=", "))
+}
+
+## drop rows with missing required fields
+df <- df[complete.cases(df[, needed]), , drop = FALSE]
+
+## Coerce to factors with fixed reference levels:
+## - Reference for X is "Y" (no property) so that X effects are "difference from Y"
+## - Reference for Cat is "A" so Cat effects are "B vs A"
+if (!is.factor(df$X))  df$X   <- factor(df$X)
+if (!is.factor(df$Cat)) df$Cat <- factor(df$Cat)
+
+## Make sure levels are exactly c("Y","X") and c("A","B") if present:
+lvlX  <- levels(df$X)
+lvlCt <- levels(df$Cat)
+if (!all(c("Y","X") %in% lvlX))  stop("df$X must contain levels 'Y' and 'X'")
+if (!all(c("A","B") %in% lvlCt)) stop("df$Cat must contain levels 'A' and 'B'")
+
+df$X   <- factor(df$X,   levels = c("Y","X"))
+df$Cat <- factor(df$Cat, levels = c("A","B"))
+
+## -----------------------------------------
+## 1) OLS with interaction: beta ~ X * Cat
+## -----------------------------------------
+m <- lm(beta ~ X * Cat, data = df)
+
+cat("\n==== OLS: beta ~ X * Cat ====\n")
+print(summary(m))
+
+## F-tests for terms (particularly the interaction). drop1 gives partial F-tests.
+cat("\n---- Partial F-tests (Type II-like via drop1) ----\n")
+print(drop1(m, test = "F"))
+
+## Optional: heteroskedasticity-robust (HC3) coefficient table
+cat("\n---- HC3 robust SEs (coeftest with vcovHC) ----\n")
+print(coeftest(m, vcov = vcovHC(m, type = "HC3")))
+
+## Planned contrasts: A vs B within each X stratum
+cat("\n---- Planned contrasts: (A vs B) within X=Y and within X=X ----\n")
+em_strat <- emmeans(m, ~ Cat | X)  # means of Cat within each level of X
+print(pairs(em_strat))             # A vs B per stratum (with Satterthwaite df)
+
+## If the interaction is not significant, you can also look at the common A–B effect:
+cat("\n---- Common A–B effect when interaction is negligible ----\n")
+em_cat <- emmeans(m, ~ Cat)        # marginal means over X
+print(pairs(em_cat))
+
+## Basic diagnostics (optional; comment out if you run in non-interactive environments)
+## par(mfrow = c(1,2))
+## plot(m, which = 1)  # Residuals vs Fitted
+## plot(m, which = 2)  # Normal Q-Q
+
+## ---------------------------------------------------
+## 2) Weighted least squares if SE(β) is available
+## ---------------------------------------------------
+has_se <- "se_beta" %in% names(df) && all(is.finite(df$se_beta)) && all(df$se_beta > 0)
+if (has_se) {
+  df$w <- 1 / (df$se_beta^2)
+  m_w <- lm(beta ~ X * Cat, data = df, weights = w)
+
+  cat("\n==== WLS (weights = 1/SE(beta)^2): beta ~ X * Cat ====\n")
+  print(summary(m_w))
+
+  cat("\n---- Partial F-tests (WLS) ----\n")
+  print(drop1(m_w, test = "F"))
+
+  cat("\n---- Planned contrasts (WLS): (A vs B) within each X ----\n")
+  em_w <- emmeans(m_w, ~ Cat | X, weights = "proportional")
+  print(pairs(em_w))
+
+  ## Optional: robust sandwich for WLS as well (uses working residuals):
+  cat("\n---- HC3 robust SEs for WLS (approximate) ----\n")
+  print(coeftest(m_w, vcov = vcovHC(m_w, type = "HC3")))
+}
+
+## ---------------------------------------------------
+## 3) Random-effects meta-regression (if SE available)
+## ---------------------------------------------------
+if (has_se) {
+  suppressMessages(library(metafor))
+  cat("\n==== Random-effects meta-regression (metafor::rma) ====\n")
+  ## Note: metafor expects yi = estimate, sei = standard error of estimate
+  res <- rma(yi = beta, sei = se_beta, mods = ~ X * Cat, data = df, method = "REML")
+  print(res)
+
+  ## Planned contrasts via linear combinations:
+  ##   Obtain estimates for A vs B within each X level from the rma object.
+  ## Build contrast vectors against the rma coefficient vector.
+  ## Coeff naming is typically: intrcpt, XX, CatB, XX:CatB (with XX indicating X==X vs ref Y)
+  coefs <- coef(res)
+  V     <- vcov(res)
+
+  ## Helper to build (A vs B) contrast within a given X level
+  ## For X = "Y": effect is just CatB
+  ## For X = "X": effect is CatB + (X:CatB)
+  contr_AB_in_Y <- c("(Intercept)" = 0,
+                     "XX"          = 0,     # metafor encodes the 2-level factor; name may differ; res$Xmods helps inspect
+                     "CatB"        = 1,
+                     "XX:CatB"     = 0)
+  contr_AB_in_X <- c("(Intercept)" = 0,
+                     "XX"          = 0,
+                     "CatB"        = 1,
+                     "XX:CatB"     = 1)
+
+  ## Align names (robust to actual coefficient names):
+  nm <- names(coefs)
+  z  <- function(a) { b <- rep(0, length(nm)); names(b) <- nm; a[names(a) %in% nm] -> a2; b[names(a2)] <- a2; b }
+
+  cY <- z(contr_AB_in_Y)
+  cX <- z(contr_AB_in_X)
+
+  estY <- sum(cY * coefs); seY <- sqrt(drop(t(cY) %*% V %*% cY)); zY <- estY/seY; pY <- 2*pnorm(-abs(zY))
+  estX <- sum(cX * coefs); seX <- sqrt(drop(t(cX) %*% V %*% cX)); zX <- estX/seX; pX <- 2*pnorm(-abs(zX))
+
+  cat("\n---- Meta-regression planned contrasts (A vs B) ----\n")
+  cat(sprintf("Within X='Y': estimate = %.4f, SE = %.4f, z = %.3f, p = %.4g\n", estY, seY, zY, pY))
+  cat(sprintf("Within X='X': estimate = %.4f, SE = %.4f, z = %.3f, p = %.4g\n", estX, seX, zX, pX))
+}
+
+## -----------------------------------------------------------------
+## 4) (Optional) Two separate within-stratum tests, Holm-adjusted
+## -----------------------------------------------------------------
+cat("\n==== OPTIONAL: two separate tests of Cat within each X stratum (unweighted OLS) ====\n")
+fit_X  <- lm(beta ~ Cat, data = df[df$X == "X",  , drop = FALSE])
+fit_Y  <- lm(beta ~ Cat, data = df[df$X == "Y",  , drop = FALSE])
+p_X    <- summary(fit_X)$coef["CatB","Pr(>|t|)"]
+p_Y    <- summary(fit_Y)$coef["CatB","Pr(>|t|)"]
+padj   <- p.adjust(c(p_X, p_Y), method = "holm")
+
+names(padj) <- c("Within X='X' (B vs A)", "Within X='Y' (B vs A)")
+print(padj)
+
+cat("\nNOTE:\n- Prefer the single interaction model for primary inference.\n- Use the planned contrasts from that model to report stratum-specific A–B effects.\n- If β has measurement error, prefer the weighted model or meta-regression.\n")
+
+```
+ 
+ 

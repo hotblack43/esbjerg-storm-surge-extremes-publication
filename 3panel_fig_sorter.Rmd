@@ -1,0 +1,50 @@
+---
+title: "Places a copy of the 3panel figures in the_best.rds in a path"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+ 
+
+```{r}
+rm(list = ls())
+rm(list = ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+
+# Load base names to match
+df <- readRDS("OUTPUT/the_best.rds")
+
+# All 3-panel figure files
+all3panelfigs <- list.files(
+  path = "FIGURES/",
+  pattern = "3panel",
+  full.names = TRUE
+)
+
+# Target directory
+output_dir <- "FIGURES/THESIGNIFICANTONES/"
+
+# Clean the target directory
+if (dir.exists(output_dir)) {
+  file.remove(list.files(output_dir, full.names = TRUE))
+} else {
+  dir.create(output_dir)
+}
+ 
+# Build expected filenames and match exactly
+ic <- 0
+for (base in df[[1]]) {
+  target_filename <- paste0(base, "_3panel_bootstrap_beta1.png")
+  match <- all3panelfigs[basename(all3panelfigs) == target_filename]
+  if (length(match) > 0) {
+    file.copy(from = match, to = output_dir, overwrite = TRUE)
+    cat("Copied:", basename(match), "\n")
+    ic <- ic+1
+  }
+}
+print(c("Copied ",ic))
+```
+
+
+ 

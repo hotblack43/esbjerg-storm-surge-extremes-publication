@@ -1,0 +1,112 @@
+---
+title: "Stacked Histogram: goodies (blue) then best (red)"
+output: pdf_document
+---
+
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION")
+
+# Read datasets
+best    <- readRDS('OUTPUT/the_best.rds')
+goodies <- readRDS('OUTPUT/the_goodies.rds')
+goodies_org <- goodies
+
+# --- Remove overlap: drop goodies rows whose filename appears in best ---
+if (!("filename" %in% names(best) && "filename" %in% names(goodies)))
+  stop("Both data frames must contain a 'filename' column for de-duplication.")
+
+.in_best <- goodies$filename %in% best$filename
+.in_best[is.na(.in_best)] <- FALSE  # why: treat NA filename as unique, not a match
+goodies <- goodies[!.in_best, , drop = FALSE]
+
+# --- Extract beta columns (expect column named exactly 'beta') ---
+b_goodies <- as.numeric(goodies$beta)
+b_best    <- as.numeric(best$beta)
+
+if (any(!is.finite(b_goodies)) || length(b_goodies) == 0)
+  stop("Could not get numeric 'beta' from 'goodies'. Check column name or after de-dup goodies became empty.")
+
+if (any(!is.finite(b_best)) || length(b_best) == 0)
+  stop("Could not get numeric 'beta' from 'best'. Check column name.")
+
+# --- Common binning (same width for both datasets) ---
+binwidth <- 0.2
+
+all_vals <- c(b_goodies, b_best)
+xmin <- floor(min(all_vals) / binwidth) * binwidth
+xmax <- ceiling(max(all_vals) / binwidth) * binwidth
+breaks <- seq(xmin, xmax, by = binwidth)
+
+# Histogram counts with shared breaks (left-closed, right-open)
+h_blue <- hist(b_goodies, breaks = breaks, include.lowest = TRUE, right = FALSE, plot = FALSE)
+h_red  <- hist(b_best,    breaks = breaks, include.lowest = TRUE, right = FALSE, plot = FALSE)
+
+# --- Plot: stacked with crosshatching ---
+if (!dir.exists("FIGURES")) dir.create("FIGURES", recursive = TRUE)
+png("FIGURES/beta_histograms.png", width = 1400, height = 900, res = 150)
+
+ylim <- c(0, max(h_blue$counts + h_red$counts))
+
+plot(NA, xlab = expression(beta), ylab = "N",
+     xlim = range(breaks), ylim = ylim,
+     main = expression("Histograms of " * beta))
+
+# Draw blue (goodies) bars at bottom with crosshatch (angle -45)
+for (i in seq_along(h_blue$counts)) {
+  xleft  <- h_blue$breaks[i]
+  xright <- h_blue$breaks[i + 1]
+  y1 <- h_red$counts[i]                 # start where red ends now
+  y2 <- y1 + h_blue$counts[i]
+  rect(xleft, y1, xright, y2, col = "blue", border = "blue", density = 20, angle = -45)
+}
+
+# Draw red (best) bars stacked on top with crosshatch (angle +45)
+for (i in seq_along(h_red$counts)) {
+  xleft  <- h_red$breaks[i]
+  xright <- h_red$breaks[i + 1]
+  y0 <- 0
+  y1 <- h_red$counts[i]
+  rect(xleft, y0, xright, y1, col = "red", border = "red", density = 20, angle = 45)
+}
+
+legend("topright",
+       legend = c("Stationary", "Non-stationary"),
+       fill = c("blue", "red"), border = c("blue", "red"),
+       density = c(20, 20), angle = c(-45, 45),
+       bty = "n")
+
+dev.off()
+
+ylim <- c(0, max(h_blue$counts + h_red$counts))
+
+plot(NA, xlab = expression(beta), ylab = "N",
+     xlim = range(breaks), ylim = ylim,
+     main = expression("Histograms of " * beta))
+
+# Draw blue (goodies) bars at bottom with crosshatch (angle -45)
+for (i in seq_along(h_blue$counts)) {
+  xleft  <- h_blue$breaks[i]
+  xright <- h_blue$breaks[i + 1]
+  y1 <- h_red$counts[i]                 # start where red ends now
+  y2 <- y1 + h_blue$counts[i]
+  rect(xleft, y1, xright, y2, col = "blue", border = "blue", density = 20, angle = -45)
+}
+
+# Draw red (best) bars stacked on top with crosshatch (angle +45)
+for (i in seq_along(h_red$counts)) {
+  xleft  <- h_red$breaks[i]
+  xright <- h_red$breaks[i + 1]
+  y0 <- 0
+  y1 <- h_red$counts[i]
+  rect(xleft, y0, xright, y1, col = "red", border = "red", density = 20, angle = 45)
+}
+
+legend("topright",
+       legend = c("Stationary", "Non-stationary"),
+       fill = c("blue", "red"), border = c("blue", "red"),
+       density = c(20, 20), angle = c(-45, 45),
+       bty = "n")
+```
+

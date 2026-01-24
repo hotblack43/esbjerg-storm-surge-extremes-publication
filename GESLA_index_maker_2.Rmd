@@ -1,0 +1,90 @@
+---
+title: "GESLA3/4 Index maker"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+```{r}
+rm(list = ls())
+
+data_dir <- "/home/pth/GESLA4/DATA/" # where the GESLA files are kept
+output_csv <- "gesla_station_index.csv"
+
+files <- list.files(data_dir, full.names = TRUE)
+station_seen <- list()
+result <- list()
+
+for (i in seq_along(files)) {
+  path <- files[i]
+  fname <- basename(path)
+  message("🔍 Processing: ", fname)
+  
+  # Derive raw station name (everything before first "-")
+  station_raw <- sub("-.*$", "", fname)
+  
+  # Handle duplicates with versioning
+  if (station_raw %in% names(station_seen)) {
+    station_seen[[station_raw]] <- station_seen[[station_raw]] + 1
+    station_id <- sprintf("%s_v%d", station_raw, station_seen[[station_raw]])
+  } else {
+    station_seen[[station_raw]] <- 1
+    station_id <- station_raw
+  }
+  
+  # Read header (first 41 lines)
+  header <- tryCatch(readLines(path, n = 41), error = function(e) return(NULL))
+  if (is.null(header)) next
+  
+  # Read body (everything after line 41)
+  body <- tryCatch(read.csv(path, skip = 41, header = FALSE, comment.char = "#"),
+                   error = function(e) return(NULL))
+  if (is.null(body)) next
+  
+  # Extract metadata
+  lon <- NA
+  lat <- NA
+  country <- NA
+  n_years <- 0
+  
+  lon_line     <- grep("#\\s*LONGITUDE",       header, value = TRUE)
+  lat_line     <- grep("#\\s*LATITUDE",        header, value = TRUE)
+  country_line <- grep("#\\s*COUNTRY",         header, value = TRUE)
+  years_line   <- grep("#\\s*NUMBER OF YEARS", header, value = TRUE)
+  
+  if (length(lon_line))     lon     <- as.numeric(sub(".*?([+-]?[0-9.]+)$", "\\1", lon_line[1]))
+  if (length(lat_line))     lat     <- as.numeric(sub(".*?([+-]?[0-9.]+)$", "\\1", lat_line[1]))
+  if (length(country_line)) country <- sub("^.*?\\bCOUNTRY\\s+", "", country_line[1])
+  if (length(years_line))   n_years <- as.numeric(sub(".*?([0-9]+)$", "\\1", years_line[1]))
+  
+  # Calculate completeness
+  nrows <- nrow(body)
+  completeness <- if (!is.na(n_years) && n_years > 0) {
+    round(nrows / (n_years * 8760), 4)
+  } else {
+    NA
+  }
+  
+  result[[length(result) + 1]] <- data.frame(
+    filename      = fname,
+    station_name  = station_id,
+    n_years       = n_years,
+    completeness  = completeness,
+    longitude     = lon,
+    latitude      = lat,
+    country       = country,
+    stringsAsFactors = FALSE
+  )
+}
+
+# Combine and save
+df <- do.call(rbind, result)
+write.table(df, file = output_csv, sep = ",", row.names = FALSE, quote = FALSE)
+message("✅ Index saved to: ", output_csv)
+
+```
+
+
+
+
+

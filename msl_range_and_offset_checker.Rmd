@@ -1,0 +1,131 @@
+---
+title: "R Notebook"
+output: 
+  pdf_document: 
+    fig_height: 8
+---
+
+MSL range and sudden offset checker.
+Uses annula values extracted elsewhere.
+
+```{r}
+rm(list=ls())
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+input_dir <- "OUTPUT/ANNUALS"
+output_file <- file.path(input_dir, "msl_ranges.csv")
+figure_file <- "FIGURES/msl_range.png"
+dir.create("FIGURES", showWarnings = FALSE)
+
+# Parameters
+k <- 1
+
+```
+
+```{r}
+# Function to compute offset score
+detect_max_offset <- function(ts) {
+  ts <- as.numeric(ts)
+  n <- length(ts)
+  if (n < 2) return(NA_real_)
+
+  best_score <- -1e22
+  best_split <- NA_integer_
+
+  for (i in 1:(n - 1)) {
+    A <- ts[1:i]
+    B <- ts[(i + 1):n]
+
+    mean_A <- mean(A, na.rm = TRUE)
+    mean_B <- mean(B, na.rm = TRUE)
+
+    # Choose the longer segment to compute standard deviation
+    if (length(A) >= length(B) && length(A) >= 2) {
+      sd_used <- sd(A, na.rm = TRUE)
+    } else if (length(B) > length(A) && length(B) >= 2) {
+      sd_used <- sd(B, na.rm = TRUE)
+    } else {
+      next  # skip if neither has at least 2 points
+    }
+
+    if (is.finite(sd_used) && sd_used > 0) {
+      score <- abs((mean_A - mean_B) / sd_used)
+  
+      if (score  >  best_score) {
+        best_score <- score
+        best_split <- i
+      }
+    }
+  }
+
+  return(best_score)
+}
+ 
+```
+
+
+```{r}
+
+# Gather CSV files
+csv_files <- list.files(input_dir, pattern = "_annual\\.csv$", full.names = TRUE)
+results <- data.frame()
+
+# Process files
+for (filepath in csv_files) {
+  try({
+    df <- read_csv(filepath, show_col_types = FALSE)
+    if (!"mean_sea_level" %in% names(df)) {
+      message("Skipping ", filepath, ": no 'mean_sea_level' column")
+      next
+    }
+
+    msl <- df$mean_sea_level
+    filename <- basename(filepath)
+
+    msl_min <- min(msl, na.rm = TRUE)
+    msl_max <- max(msl, na.rm = TRUE)
+    msl_range <- msl_max - msl_min
+    msl_mean <- mean(msl, na.rm = TRUE)
+    num_years <- sum(!is.na(msl))
+    
+    offset_score <- detect_max_offset(msl)
+ 
+
+    message(sprintf("%s: mean(mean_sea_level) = %.2f | Offset score = %.2f", filename, msl_mean, offset_score))
+
+    results <- rbind(results, data.frame(
+      filename = filename,
+      msl_min = msl_min,
+      msl_max = msl_max,
+      msl_range = msl_range,
+      msl_mean = msl_mean,
+      num_years = num_years,
+      offset_score = offset_score
+    ))
+  })
+}
+
+# Save CSV
+write_csv(results, output_file)
+
+# Plot histogram of msl_range
+ggplot(results, aes(x = msl_range)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "black", alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Distribution of Mean Sea Level Ranges",
+    x = "MSL Range [cm]",
+    y = "Number of Stations"
+  )
+
+ggsave(figure_file, width = 10, height = 6, dpi = 300)
+
+```
+
+# plot
+```{r}
+plot(results$offset_score,results$msl_range,pch=19,log='xy')
+```
+

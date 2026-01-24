@@ -1,0 +1,162 @@
+---
+title: "Harmonic fit - over hemispheric storm years - find annual largest residuals."
+output: 
+  pdf_document: 
+    fig_obs: 9
+  html_notebook: 
+    fig_obs: 9
+    theme: readable 
+---
+
+# This version defines the 'storm year' by using the station latitude.
+
+#1 was run GESLA_data_checker_x.Rmd
+# This is #2
+
+
+```{r, message=FALSE}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION") 
+library(TideHarmonics)
+library(dplyr)
+library(lubridate)
+library(stringr)
+library(MASS)
+
+indir <- "OUTPUT/CHECKTHISONE"
+outdir <- "OUTPUT/ANNUALS2"
+system(paste0("rm -f ", outdir, "/*"))
+dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+harmonic_set <- hc37
+Sys.setenv(TZ="UTC")
+#
+stationinfo <- readRDS("DATA/station_metadata.rds")
+
+```
+
+
+
+```{r}
+
+rds_files <- list.files(indir, pattern = "\\.rds$", full.names = TRUE)
+#rds_files <- rds_files[1]
+listen <- NULL
+for (filepath in rds_files) {
+  cat("\nProcessing:", filepath, "\n")
+  
+  tryCatch({
+    filename <- basename(filepath)
+    #  station_name <- str_replace(filename, "_ON_THE_HOUR\\.rds$", "")
+    station_name <- tools::file_path_sans_ext(basename(filename))
+    # --- Match station_name to stationinfo$filename ---
+    matches <- stationinfo[grepl(station_name, stationinfo$filename), ]
+    
+    if (nrow(matches) == 0) {
+      stop(paste("No match found in stationinfo for station:", station_name))
+    }
+    if (nrow(matches) > 1) {
+      stop(paste("Multiple matches found in stationinfo for station:", station_name, "- matches:", paste(matches$filename, collapse = ", ")))
+    }
+    
+    station_latitude <- matches$latitude
+    cat("✔ Station:", station_name, "- Latitude:", station_latitude, "\n")
+    dat <- readRDS(filepath)
+    
+    #   stopifnot(all(c("POSIX", "obs", "qf2") %in% names(dat)))
+    stopifnot(all(c("obs",   "qf1" ,  "qf2" ,  "POSIX") %in% names(dat)))
+    
+    dat <- dat %>%
+      filter(qf2 == 1, !is.na(obs), !is.na(POSIX))
+    
+    if (nrow(dat) < 7451) {
+      cat("  Skipping:", station_name, "- insufficient valid records\n")
+      next
+    }
+    
+    dat <- dat %>% mutate(POSIX = as.POSIXct(POSIX, tz = "UTC"))
+    dat <- dat %>% mutate(year = year(POSIX), month = month(POSIX))
+    
+    #    dat <- dat %>% mutate(
+    #      storm_year = ifelse(month >= 7, year + 1, year)
+    #    )
+    
+    dat <- dat %>% mutate(
+      storm_year = if (station_latitude >= 0) {
+        # Northern Hemisphere: summer-to-summer
+        ifelse(month >= 7, year + 1, year)
+      } else {
+        # Southern Hemisphere: calendar year
+        year
+      }
+    )
+    
+    
+    annual_summaries <- list()
+    
+    for (y in sort(unique(dat$storm_year))) {
+      subset <- dat %>% filter(storm_year == y)
+      
+      if (nrow(subset) < 7451) {
+        cat("  Skipping storm year", y, "(too few records)\n")
+        next
+      }
+      
+      t <- subset$POSIX
+      #x <- subset$obs
+      x <- as.numeric(subset$obs)
+      ord <- order(t)
+      t <- t[ord]
+      x <- x[ord]*100 # convert to cm
+      
+      
+      
+      # Defensive: check uniqueness
+      if (anyDuplicated(t) > 0) {
+        cat("    Skipping year", y, "- duplicated timestamps\n")
+        next
+      }
+      
+      ftide_fit <- ftide( x, t,
+                          hcn = hc37,
+                          nodal = TRUE,
+                          smsl = FALSE,
+                          span = 0.55)
+      
+      
+      prediction <- ftide_fit$fitted.values
+      residuals <- ftide_fit$residuals
+      
+      
+      annual_summaries[[as.character(y)]] <- tibble(
+        storm_year = y,
+        max_residual = max(residuals, na.rm = TRUE),
+        mean_sea_level = mean(x, na.rm = TRUE)
+      )
+      
+    }
+    
+    if (length(annual_summaries) == 0) {
+      cat("  No complete storm years retained\n")
+      next
+    }
+    
+    annual_df <- bind_rows(annual_summaries)
+    rlm_fit <- rlm(mean_sea_level ~ storm_year, data=annual_df)
+    rlm_slope <- rlm_fit$coefficients[2]
+    linjen <- c(station_name,rlm_slope)
+    listen <- rbind.data.frame(listen,linjen)
+    out_csv <- file.path(outdir, paste0(station_name, "_annual.csv"))
+    
+    write.csv(annual_df, out_csv, row.names = FALSE)
+    cat("  ✔ Wrote annual summary to:", out_csv, "\n")
+    
+  }, error = function(e) {
+    cat("  ✖ ERROR in", filepath, ":", conditionMessage(e), "\n")
+  })
+}
+#
+colnames(listen) <- c('Station','rlm_slope')
+listen$rlm_slope <- as.numeric(listen$rlm_slope)
+saveRDS(listen,'OUTPUT/rlmslopes.rds')
+```
+

@@ -1,0 +1,257 @@
+
+---
+title: "Seabed Slope/Depth Correlation vs beta"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(viridis)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load Packages and Data
+
+```{r load}
+
+
+# Load CSV with precomputed slope/depth values
+df_input <- read_csv("~/WORKSHOP/LOS/OUTPUT/seabed_slope_and_band_depths_ESBJERG3.csv", show_col_types = FALSE)
+
+# Load beta data
+goodies <- readRDS("/home/pth/WORKSHOP/ESBJERG2/PUBLICATION/OUTPUT/the_goodies.rds")
+best    <- readRDS("/home/pth/WORKSHOP/ESBJERG2/PUBLICATION/OUTPUT/the_best.rds")
+
+
+# Normalize filenames
+df_input$filename  <- trimws(tolower(df_input$filename))
+goodies$filename   <- trimws(tolower(goodies$filename))
+best$filename      <- trimws(tolower(best$filename))
+
+# Drop best from goodies to avoid overlap
+best_ids <- best$filename
+goodies_exclusive <- goodies[!goodies$filename %in% best_ids, ]
+
+### Select One Slope or Depth Column
+
+# Choose exactly one variable: e.g., "slope_median" or "depth_band_mean_m"
+#column_to_use <- "slope_median"   # "depth_band_median_m"  
+column_to_use <- "depth_band_median_m"  # "slope_median"   
+```
+
+### Loop Over Radius Combinations with Median Split and Labeled Groups
+
+```{r loop}
+results_all  <- data.frame()
+results_best <- data.frame()
+plot_data_list <- list()
+
+radius_combos <- df_input %>%
+  select(inner_radius_km, outer_radius_km) %>%
+  distinct() %>%
+  filter(outer_radius_km > inner_radius_km)
+
+for (i in seq_len(nrow(radius_combos))) {
+  inner <- radius_combos$inner_radius_km[i]
+  outer <- radius_combos$outer_radius_km[i]
+  
+  df_radius <- df_input %>%
+    filter(inner_radius_km == inner, outer_radius_km == outer)
+  
+  merged_all <- inner_join(df_radius, goodies_exclusive[, c("filename", "beta1")], by = "filename")
+  merged_best <- inner_join(df_radius, best[, c("filename", "beta1")], by = "filename")
+  
+  for (case in list(list("merged"=merged_all, "results"="results_all", "type"="Stationary"),
+                    list("merged"=merged_best, "results"="results_best", "type"="Non-stationary"))) {
+    
+    merged <- case$merged
+    x <- merged[[column_to_use]]
+    y <- merged$beta1
+    
+    if (length(x) < 4 || all(is.na(x))) next
+    
+    median_val <- median(x, na.rm = TRUE)
+    print(c('median is: ',median_val))
+    
+    if (grepl("slope", column_to_use, ignore.case = TRUE)) {
+      group <- ifelse(x < median_val, "steep", "gentle")
+      g1 <- "steep"; g2 <- "gentle"
+    } else if (grepl("depth", column_to_use, ignore.case = TRUE)) {
+      group <- ifelse(x < median_val, "deep", "shallow")
+      g1 <- "deep"; g2 <- "shallow"
+      group <- factor(group, levels = c("shallow","deep"))  # <-- keep shallow left
+    } else {
+      group <- ifelse(x < median_val, "low", "high")
+      g1 <- "low"; g2 <- "high"
+    }
+    
+    
+    if (length(unique(group)) < 2) next
+    
+    ttest <- suppressWarnings(t.test(y ~ group, var.equal=FALSE)) # i.e. Welch's test for unequal variances
+    
+    row <- data.frame(
+      column = column_to_use,
+      inner_radius_km = inner,
+      outer_radius_km = outer,
+      beta_group1_mean = mean(y[group == g1], na.rm = TRUE),
+      beta_group2_mean = mean(y[group == g2], na.rm = TRUE),
+      delta_beta = mean(y[group == g2], na.rm = TRUE) - mean(y[group == g1], na.rm = TRUE),
+      t_p_value = ttest$p.value,
+      group1 = g1,
+      group2 = g2,
+      type = case$type
+    )
+    
+    if (case$results == "results_all") {
+      results_all <- rbind(results_all, row)
+    } else {
+      results_best <- rbind(results_best, row)
+    }
+    
+    merged$group <- group
+    merged$inner_radius_km <- inner
+    merged$outer_radius_km <- outer
+    merged$column <- column_to_use
+    merged$type <- case$type
+    plot_data_list[[length(plot_data_list) + 1]] <- merged
+  }
+}
+```
+
+### Plot Boxplots in Style Matching Reference Image
+
+```{r plot-boxplots}
+boxplot_data <- bind_rows(plot_data_list)
+boxplot_data$type <- factor(boxplot_data$type, levels = c("Stationary", "Non-stationary"))
+
+p_best <- 1.0
+for (combo in unique(paste(boxplot_data$inner_radius_km, boxplot_data$outer_radius_km, sep = "_"))) {
+  parts <- unlist(strsplit(combo, "_"))
+  inner <- parts[1]
+  outer <- parts[2]
+  
+  subset_data <- boxplot_data %>%
+    filter(inner_radius_km == inner, outer_radius_km == outer)
+  
+  if (nrow(subset_data) < 4) next
+  
+  # Find associated p-values
+  p_stat <- results_all %>%
+    filter(inner_radius_km == as.numeric(inner), outer_radius_km == as.numeric(outer), column == column_to_use) %>%
+    pull(t_p_value)
+  
+  p_nonstat <- results_best %>%
+    filter(inner_radius_km == as.numeric(inner), outer_radius_km == as.numeric(outer), column == column_to_use) %>%
+    pull(t_p_value)
+  
+  p_combined <- min(c(p_stat, p_nonstat), na.rm = TRUE)
+  
+  # Only save if this is the best seen so far across all combinations
+  if (!is.na(p_combined) && p_combined < p_best) {
+    p_best <- p_combined
+  } else {
+    next
+  }
+  
+  
+  
+  # Create p-value labels
+  label_data <- data.frame(
+    type = c("Stationary", "Non-stationary"),
+    p_value = c(p_stat, p_nonstat),
+    label = sprintf("p = %.4f", c(p_stat, p_nonstat))
+  )
+  
+  # Determine y-position
+  #  y_max <- max(subset_data$beta1, na.rm = TRUE)
+  y_max <- quantile(subset_data$beta1, 0.99, na.rm = TRUE)
+  
+  p <- ggplot(subset_data, aes(x = group, y = beta1, fill = group)) +
+    scale_x_discrete(limits = c("shallow","deep"), drop = FALSE) + 
+    geom_boxplot(outlier.shape = 21, outlier.size = 2, outlier.fill = "white", color = "black", width = 0.6) +
+    facet_wrap(~type, ncol = 2, scales = "fixed") +
+    geom_text(data = label_data, aes(x = 1.5, y = y_max, label = label), inherit.aes = FALSE, size = 5, hjust = 0.5, vjust = -1) +
+    #    scale_fill_manual(values = c("shallow" = "#add8e6", "steep" = "#90ee90", "deep" = "#add8e6")) +
+    scale_fill_manual(values = c(
+      "gentle"  = "#90ee90",  # light green
+      "shallow" = "#90ee90",  # salmon
+      "steep"   = "#f08080",  # salmon
+      "deep"    = "#f08080"   # light green
+    )) +
+    labs(
+      title = bquote(beta ~ " by median split on" ~ .(column_to_use) ~ "(" ~ .(inner) ~ "to" ~ .(outer) ~ " km)"),
+      x = if (grepl("slope", column_to_use, ignore.case = TRUE)) {
+        "Slope Category"
+      } else if (grepl("depth", column_to_use, ignore.case = TRUE)) {
+        "Depth Category"
+      } else {
+        paste("Split by median", column_to_use)
+      },
+      y = expression(beta)
+    ) +
+    theme_minimal(base_size = 14) +
+    theme(
+      strip.text = element_text(size = 16, face = "bold"),
+      axis.text = element_text(size = 12),
+      axis.title = element_text(size = 14),
+      panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
+      legend.position = "none",
+      plot.margin = margin(t = 12, r = 10, b = 10, l = 10)
+    )  #+ scale_x_discrete(limits = c("shallow","deep"), drop = FALSE)
+  
+  
+  ggsave(sprintf("FIGURES/BOXPLOTS/boxplot_%s_r%sto%s.png", column_to_use, inner, outer), p, width = 8, height = 5, dpi = 300)
+}
+```
+
+```{r plot-heatmap}
+results_all$log_p <- log10(results_all$t_p_value)
+results_best$log_p <- log10(results_best$t_p_value)
+results_all$fade <- results_all$t_p_value > 0.05
+results_best$fade <- results_best$t_p_value > 0.05
+combined <- rbind(results_all, results_best)
+
+for (col in unique(combined$column)) {
+  plot_data <- combined %>% filter(column == col)
+  plot_data$inner_radius_km <- factor(plot_data$inner_radius_km)
+  plot_data$outer_radius_km <- factor(plot_data$outer_radius_km)
+  plot_data$alpha <- ifelse(plot_data$t_p_value > 0.05, 0.3, 1.0)  # faded for non-significant
+  
+  # Determine every second label for x- and y-axis
+  x_levels <- levels(plot_data$outer_radius_km)
+  y_levels <- levels(plot_data$inner_radius_km)
+  x_breaks <- x_levels[seq(1, length(x_levels), by = 2)]
+  y_breaks <- y_levels[seq(1, length(y_levels), by = 2)]
+  
+  png(sprintf("FIGURES/BOXPLOTS/median_split_log_p_heatmap_%s.png", col), width = 1600, height = 800, res = 150)
+  print(
+    ggplot(plot_data, aes(x = outer_radius_km, y = inner_radius_km, fill = log_p, alpha = alpha)) +
+      geom_tile(color = "grey90") +
+      facet_wrap(~type, ncol = 2) +
+      scale_fill_viridis_c(option = "inferno", name = "log10(p-value)", limits = c(-4, 0), breaks = c(-4, -3, -2, -1, 0)) +
+      scale_alpha_identity() +
+      scale_x_discrete(breaks = x_breaks) +
+      scale_y_discrete(breaks = y_breaks) +
+      labs(
+        title = paste("Median Split t-test p-values for", col, "vs beta"),
+        x = "Outer radius (km)",
+        y = "Inner radius (km)"
+      ) +
+      theme_minimal(base_size = 14) +
+      theme(
+        strip.text = element_text(size = 14, face = "bold"),
+        axis.text.x = element_text(angle = 45, hjust = 1)
+      )
+  )
+  dev.off()
+}
+```
+
+
+
+

@@ -1,0 +1,59 @@
+---
+title: "Comparing slope and depth variants - Esbjerg"
+output: 
+  pdf_document: 
+    fig_height: 10
+---
+
+```{r setup}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+library(readr)
+```
+
+
+ 
+```{r}
+path_input_csv <- "~/WORKSHOP/LOS/OUTPUT/seabed_slope_and_band_depths_ESBJERG3.csv"
+
+# Data
+df <- read_csv(path_input_csv, show_col_types = FALSE)
+colnames(df)
+```
+
+```{r}
+plot(df$depth_band_mean_m,df$depth_band_median_m,pch=19,cex=0.4)
+abline(c(0,1),col=2,lwd=3)
+plot(df$slope_mean,df$slope_median,pch=19,cex=0.4)
+abline(c(0,1),col=2,lwd=3)
+abline(v=0,lty=2)
+abline(h=0,lty=2)
+#
+plot(df$depth_band_mean_m,df$depth_band_median_m,pch=19,cex=0.2,xlim=c(-100,0),ylim=c(-100,0))
+abline(c(0,1),col=2,lwd=3)
+plot(df$slope_mean,df$slope_median,pch=19,cex=0.4,xlim=c(-0.002,0),ylim=c(-0.002,0))
+abline(c(0,1),col=2,lwd=3)
+abline(v=0,lty=2)
+abline(h=0,lty=2)
+#
+png("FIGURES/comparing_slopes_and_depths.png")
+par(mfrow=c(2,2))
+plot(df$depth_band_mean_m,df$depth_band_median_m,pch=19,cex=0.4)
+abline(c(0,1),col=2,lwd=3)
+plot(df$slope_mean,df$slope_median,pch=19,cex=0.4)
+abline(c(0,1),col=2,lwd=3)
+abline(v=0,lty=2)
+abline(h=0,lty=2)
+#
+plot(df$depth_band_mean_m,df$depth_band_median_m,pch=19,cex=0.2,xlim=c(-100,0),ylim=c(-100,0))
+abline(c(0,1),col=2,lwd=3)
+plot(df$slope_mean,df$slope_median,pch=19,cex=0.4,xlim=c(-0.002,0),ylim=c(-0.002,0))
+abline(c(0,1),col=2,lwd=3)
+abline(v=0,lty=2)
+abline(h=0,lty=2)
+dev.off()
+
+```
+
+
+ 

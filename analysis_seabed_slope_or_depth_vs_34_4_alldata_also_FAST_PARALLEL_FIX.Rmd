@@ -1,0 +1,800 @@
+---
+title: "Seabed Slope/Depth Correlation vs β — split & ALL-data"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+### Load packages & IO
+
+```{r load}
+rm(list = ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION/")
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(readr)
+  library(ggplot2)
+  library(viridis)
+  library(stringr)
+  library(tidyr)
+  library(future)
+  library(future.apply)
+  library(data.table)  # for rbindlist (speed)
+})
+
+#
+# Settings
+if_regression <- FALSE # TIMECONSUMING: make regressions as an alternative to the factor test
+if_ALL <- FALSE # TIMECONSUMING: repeat all tests for 'best' and 'goodies' combined
+# 
+# --------- RESAMPLING controls (safe defaults) ----------
+RESAMPLING_ON    <- TRUE   # set FALSE to disable resampling AND loo 
+RESAMPLING_N     <- 20     # modest number of bootstrap maps
+RESAMPLING_SUFFIX <- "RESAMPLING"
+PARALLEL_INSIDE  <- FALSE  # set TRUE to parallelise the per-cell loop
+# ---------- LOO controls ----------
+RESAMPLING_loo_N      <- 235        # number of LOO maps to produce (wraps around if larger than n)
+RESAMPLING_loo_SUFFIX  <- "RESAMPLING_LOO"
+LOO_MODE          <- "paired"  # "paired", "stationary", or "nonstationary"
+# ------------------------------
+# Paths (keep your originals here if different)
+path_input_csv <- "~/WORKSHOP/LOS/OUTPUT/seabed_slope_and_band_depths_ESBJERG3.csv"
+path_goodies   <- "/home/pth/WORKSHOP/ESBJERG2/PUBLICATION/OUTPUT/the_goodies.rds"
+path_best      <- "/home/pth/WORKSHOP/ESBJERG2/PUBLICATION/OUTPUT/the_best.rds"
+
+# Ensure figure dirs
+fig_dir <- "FIGURES/BOXPLOTS"
+dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+
+# Data
+df_input <- read_csv(path_input_csv, show_col_types = FALSE)
+
+goodies <- readRDS(path_goodies)
+best    <- readRDS(path_best)
+
+# Normalize filenames & drop overlap (avoid double counting) 
+df_input$filename <- trimws(tolower(df_input$filename))
+goodies$filename  <- trimws(tolower(goodies$filename))
+best$filename     <- trimws(tolower(best$filename))
+
+goodies_exclusive <- dplyr::anti_join(goodies, dplyr::select(best, filename), by = "filename")
+
+# ALL pool
+all_beta <- dplyr::bind_rows(
+  dplyr::select(goodies_exclusive, filename, beta1),
+  dplyr::select(best,             filename, beta1)
+) %>% distinct(filename, .keep_all = TRUE)
+```
+
+### Select a single covariate
+```{r choose-column}
+# Choose one: "slope_median" OR "depth_band_median_m"
+column_to_use <-  "depth_band_median_m"   # or "depth_band_median_m" # "slope_median" 
+stopifnot(column_to_use %in% names(df_input))
+```
+
+### Scan radius combos; compute t‑tests for split + ALL
+```{r scan}
+# Collect plot payloads here; we'll render after compute
+plot_data_split <- list()   # for Stationary/Non‑stationary boxplots
+plot_data_all   <- list()   # for ALL single‑panel boxplots
+
+radius_combos <- df_input %>%
+  dplyr::select(inner_radius_km, outer_radius_km) %>%
+  distinct() %>%
+  dplyr::filter(outer_radius_km > inner_radius_km)
+
+# Parallel plan (safe default)
+plan(multisession, workers = max(1, parallel::detectCores() - 1))
+
+# Worker function for a single (inner, outer)
+one_window <- function(inner, outer, column_to_use, df_input, goodies_exclusive, best, all_beta) {
+  # Filter rows for this ring
+  df_radius <- dplyr::filter(df_input, inner_radius_km == inner, outer_radius_km == outer)
+  
+  merged_stat    <- dplyr::inner_join(df_radius, dplyr::select(goodies_exclusive, filename, beta1), by = "filename")
+  merged_nonstat <- dplyr::inner_join(df_radius, dplyr::select(best,             filename, beta1), by = "filename")
+  merged_all     <- dplyr::inner_join(df_radius, all_beta, by = "filename")
+  
+  out_rows_stat <- NULL
+  out_rows_non  <- NULL
+  out_rows_all  <- NULL
+  out_plots_split <- list()
+  out_plots_all   <- list()
+  
+  cases <- list(
+    list(dat = merged_stat,    label = "Stationary",     out = "stat"),
+    list(dat = merged_nonstat, label = "Non-stationary", out = "non")
+  )
+  
+  # Split cases (Stationary/Non-stationary)
+  for (case in cases) {
+    m <- case$dat
+    if (all(c(column_to_use, "beta1") %in% names(m))) {
+      x <- m[[column_to_use]]
+      y <- m$beta1
+      if (length(x) >= 4 && !all(is.na(x))) {
+        med <- median(x, na.rm = TRUE)
+        if (grepl("slope", column_to_use, ignore.case = TRUE)) {
+          grp <- ifelse(x < med, "gentle", "steep")
+          g1 <- "gentle"; g2 <- "steep"
+        } else if (grepl("depth", column_to_use, ignore.case = TRUE)) {
+          grp <- ifelse(x < med, "deep", "shallow")
+          g1 <- "deep"; g2 <- "shallow"
+        } else {
+          grp <- ifelse(x < med, "low", "high"); g1 <- "low"; g2 <- "high"
+        }
+        ok <- sum(grp == g1, na.rm = TRUE) >= 2 && sum(grp == g2, na.rm = TRUE) >= 2
+        if (ok) {
+          ttest <- try(stats::t.test(y[grp == g1], y[grp == g2]), silent = TRUE)
+          if (!inherits(ttest, "try-error")) {
+            row <- tibble::tibble(
+              column = column_to_use,
+              inner_radius_km = inner,
+              outer_radius_km = outer,
+              beta_group1_mean = mean(y[grp == g1], na.rm = TRUE),
+              beta_group2_mean = mean(y[grp == g2], na.rm = TRUE),
+              delta_beta = mean(y[grp == g2], na.rm = TRUE) - mean(y[grp == g1], na.rm = TRUE),
+              t_p_value = ttest$p.value,
+              group1 = g1,
+              group2 = g2,
+              type = case$label
+            )
+            if (case$out == "stat") out_rows_stat <- row else out_rows_non <- row
+            
+            # Stash payload for boxplots
+            m$group <- grp
+            m$inner_radius_km <- inner
+            m$outer_radius_km <- outer
+            m$column <- column_to_use
+            m$type <- case$label           # <<< FIX: carry type into split plot payload
+            out_plots_split[[length(out_plots_split) + 1]] <- m
+          }
+        }
+      }
+    }
+  }
+  
+  # ALL case (single panel)
+  if (all(c(column_to_use, "beta1") %in% names(merged_all))) {
+    x <- merged_all[[column_to_use]]; y <- merged_all$beta1
+    if (length(x) >= 4 && !all(is.na(x))) {
+      med <- median(x, na.rm = TRUE)
+      if (grepl("slope", column_to_use, ignore.case = TRUE)) {
+        grp <- ifelse(x < med, "gentle", "steep")
+        g1 <- "gentle"; g2 <- "steep"
+      } else if (grepl("depth", column_to_use, ignore.case = TRUE)) {
+        grp <- ifelse(x < med, "deep", "shallow")
+        g1 <- "deep"; g2 <- "shallow"
+      } else {
+        grp <- ifelse(x < med, "low", "high"); g1 <- "low"; g2 <- "high"
+      }
+      ok <- sum(grp == g1, na.rm = TRUE) >= 2 && sum(grp == g2, na.rm = TRUE) >= 2
+      if (ok) {
+        ttest <- try(stats::t.test(y[grp == g1], y[grp == g2]), silent = TRUE)
+        if (!inherits(ttest, "try-error")) {
+          out_rows_all <- tibble::tibble(
+            column = column_to_use,
+            inner_radius_km = inner,
+            outer_radius_km = outer,
+            beta_group1_mean = mean(y[grp == g1], na.rm = TRUE),
+            beta_group2_mean = mean(y[grp == g2], na.rm = TRUE),
+            delta_beta = mean(y[grp == g2], na.rm = TRUE) - mean(y[grp == g1], na.rm = TRUE),
+            t_p_value = ttest$p.value,
+            group1 = g1,
+            group2 = g2,
+            type = "All"
+          )
+          
+          merged_all$group <- grp
+          merged_all$inner_radius_km <- inner
+          merged_all$outer_radius_km <- outer
+          merged_all$column <- column_to_use
+          out_plots_all[[length(out_plots_all) + 1]] <- merged_all
+        }
+      }
+    }
+  }
+  
+  list(
+    stat_row = out_rows_stat,
+    non_row  = out_rows_non,
+    all_row  = out_rows_all,
+    split_plots = out_plots_split,
+    all_plots   = out_plots_all
+  )
+}
+
+# Run in parallel over all ring combos
+parts <- future_lapply(seq_len(nrow(radius_combos)), function(i) {
+  inner <- radius_combos$inner_radius_km[i]
+  outer <- radius_combos$outer_radius_km[i]
+  one_window(inner, outer, column_to_use, df_input, goodies_exclusive, best, all_beta)
+})
+
+# Consolidate results (single binds)
+results_stat    <- rbindlist(lapply(parts, `[[`, "stat_row"), use.names = TRUE, fill = TRUE)
+results_nonstat <- rbindlist(lapply(parts, `[[`, "non_row"),  use.names = TRUE, fill = TRUE)
+results_all     <- rbindlist(lapply(parts, `[[`, "all_row"),  use.names = TRUE, fill = TRUE)
+
+plot_data_split <- unlist(lapply(parts, `[[`, "split_plots"), recursive = FALSE)
+plot_data_all   <- unlist(lapply(parts, `[[`, "all_plots"),   recursive = FALSE)
+
+# Keep as plain data.frames for downstream code
+results_stat    <- as.data.frame(results_stat)
+results_nonstat <- as.data.frame(results_nonstat)
+results_all     <- as.data.frame(results_all)
+```
+
+```{r}
+saveRDS(df_input,'OUTPUT/betas_depths_slopes.rds')
+```
+
+### Two‑panel boxplots (split)
+```{r split-boxplots}
+boxplot_data <- dplyr::bind_rows(plot_data_split)
+if (nrow(boxplot_data) > 0) {
+  boxplot_data$type <- factor(boxplot_data$type, levels = c("Stationary", "Non-stationary"))
+  
+  for (combo in unique(paste(boxplot_data$inner_radius_km, boxplot_data$outer_radius_km, sep = "_"))) {
+    parts <- strsplit(combo, "_")[[1]]
+    inner <- parts[1]; outer <- parts[2]
+    
+    subset_data <- boxplot_data %>% dplyr::filter(inner_radius_km == inner, outer_radius_km == outer)
+    if (nrow(subset_data) < 4) next
+    
+    p_stat <- results_stat %>% dplyr::filter(inner_radius_km == as.numeric(inner), outer_radius_km == as.numeric(outer), column == column_to_use) %>% dplyr::pull(t_p_value)
+    p_non  <- results_nonstat %>% dplyr::filter(inner_radius_km == as.numeric(inner), outer_radius_km == as.numeric(outer), column == column_to_use) %>% dplyr::pull(t_p_value)
+    
+    label_data <- tibble::tibble(type = c("Stationary", "Non-stationary"), p = c(p_stat, p_non), label = sprintf("p = %.4f", c(p_stat, p_non)))
+    y_max <- stats::quantile(subset_data$beta1, 0.99, na.rm = TRUE)
+    
+    p <- ggplot(subset_data, aes(x = group, y = beta1, fill = group)) +
+      geom_boxplot(outlier.shape = 21, outlier.size = 2, outlier.fill = "white", color = "black", width = 0.6) +
+      facet_wrap(~type, ncol = 2, scales = "fixed") +
+      geom_text(data = label_data, aes(x = 1.5, y = y_max, label = label), inherit.aes = FALSE, size = 5, hjust = 0.5, vjust = -1) +
+      scale_fill_manual(values = c("gentle" = "#90ee90", "shallow" = "#90ee90", "steep" = "#f08080", "deep" = "#f08080")) +
+      labs(title = bquote(beta ~ " by median split on" ~ .(column_to_use) ~ "(" ~ .(inner) ~ " to " ~ .(outer) ~ " km)"), x = NULL, y = expression(beta)) +
+      theme_minimal(base_size = 14) +
+      theme(strip.text = element_text(size = 16, face = "bold"), legend.position = "none", plot.margin = margin(t = 12, r = 10, b = 10, l = 10))
+    
+    ggsave(sprintf("%s/boxplot_SPLIT_%s_r%sto%s.png", fig_dir, column_to_use, inner, outer), p, width = 8, height = 5, dpi = 300)
+  }
+}
+```
+
+### Single‑panel boxplots (ALL)
+
+```{r all-boxplots}
+if (if_ALL){
+  box_all <- dplyr::bind_rows(plot_data_all)
+  if (nrow(box_all) > 0) {
+    for (combo in unique(paste(box_all$inner_radius_km, box_all$outer_radius_km, sep = "_"))) {
+      parts <- strsplit(combo, "_")[[1]]
+      inner <- parts[1]; outer <- parts[2]
+      
+      subset_data <- box_all %>% dplyr::filter(inner_radius_km == inner, outer_radius_km == outer)
+      if (nrow(subset_data) < 4) next
+      
+      p_all <- results_all %>% dplyr::filter(inner_radius_km == as.numeric(inner), outer_radius_km == as.numeric(outer), column == column_to_use) %>% dplyr::pull(t_p_value)
+      label_data <- tibble::tibble(type = "All", p = p_all, label = sprintf("p = %.4f", p_all))
+      y_max <- stats::quantile(subset_data$beta1, 0.99, na.rm = TRUE)
+      
+      p <- ggplot(subset_data, aes(x = group, y = beta1, fill = group)) +
+        geom_boxplot(outlier.shape = 21, outlier.size = 2, outlier.fill = "white", color = "black", width = 0.6) +
+        geom_text(data = label_data, aes(x = 1.5, y = y_max, label = label), inherit.aes = FALSE, size = 5, hjust = 0.5, vjust = -1) +
+        scale_fill_manual(values = c("gentle" = "#90ee90", "shallow" = "#90ee90", "steep" = "#f08080", "deep" = "#f08080")) +
+        labs(title = bquote(beta ~ " by median split on" ~ .(column_to_use) ~ "(" ~ .(inner) ~ " to " ~ .(outer) ~ " km)"), x = NULL, y = expression(beta)) +
+        theme_minimal(base_size = 14) +
+        theme(strip.text = element_text(size = 16, face = "bold"), legend.position = "none", plot.margin = margin(t = 12, r = 10, b = 10, l = 10))
+      
+      ggsave(sprintf("%s/boxplot_ALL_%s_r%sto%s.png", fig_dir, column_to_use, inner, outer), p, width = 6.5, height = 4.5, dpi = 300)
+    }
+  }
+} # end if_ALL
+```
+
+### Heatmap of log10(p) — split (two panels)
+```{r heatmap-split}
+if (nrow(results_stat) > 0 && nrow(results_nonstat) > 0) {
+  res_split <- dplyr::bind_rows(results_stat, results_nonstat) %>%
+    dplyr::mutate(log_p = log10(pmax(t_p_value, 1e-12))) %>%
+    dplyr::mutate(fade = t_p_value > 0.05)
+  for (col in unique(res_split$column)) {
+    plot_data <- res_split %>%
+      dplyr::filter(column == col) %>%
+      dplyr::mutate(
+        inner_radius_km = factor(inner_radius_km),
+        outer_radius_km = factor(outer_radius_km),
+        alpha = ifelse(fade, 0.3, 1.0)
+      )
+    x_levels <- levels(plot_data$outer_radius_km)
+    y_levels <- levels(plot_data$inner_radius_km)
+    x_breaks <- x_levels[seq(1, length(x_levels), by = 2)]
+    y_breaks <- y_levels[seq(1, length(y_levels), by = 2)]
+    
+    png(sprintf("%s/median_split_log_p_heatmap_SPLIT_%s.png", fig_dir, col), width = 1600, height = 800, res = 150)
+    print(
+      ggplot(plot_data, aes(x = outer_radius_km, y = inner_radius_km, fill = log_p, alpha = alpha)) +
+        geom_tile(color = "grey90") +
+        facet_wrap(~type, ncol = 2) +
+        scale_fill_viridis_c(option = "inferno", name = "log10(p-value)", limits = c(-4, 0), breaks = c(-4, -3, -2, -1, 0)) +
+        scale_alpha_identity() +
+        scale_x_discrete(breaks = x_breaks) +
+        scale_y_discrete(breaks = y_breaks) +
+        labs(title = paste("Median Split t-test p-values for", col, "vs beta"), x = "Outer radius (km)", y = "Inner radius (km)") +
+        theme_minimal(base_size = 14) +
+        theme(strip.text = element_text(size = 14, face = "bold"), axis.text.x = element_text(angle = 45, hjust = 1))
+    )
+    dev.off()
+  }
+}
+```
+
+# Switchable resampling for robustness-testing
+```{r heatmap-split-RESAMPLING-global}
+### Heatmap of log10(p) — SPLIT — RESAMPLING (GLOBAL, per-map bootstrap)
+
+
+if (RESAMPLING_ON && exists("df_input") && exists("goodies_exclusive") && exists("best")) {
+  out_dir_res <- file.path(fig_dir, RESAMPLING_SUFFIX)
+  if (!dir.exists(out_dir_res)) dir.create(out_dir_res, recursive = TRUE, showWarnings = FALSE)
+
+  # radius grid (do not rely on outer state)
+  radius_combos_res <- df_input |>
+    dplyr::select(inner_radius_km, outer_radius_km) |>
+    dplyr::distinct() |>
+    dplyr::arrange(inner_radius_km, outer_radius_km)
+
+  # Worker: compute a t-test row for one cell given pre-sampled filename multiplicities
+  .ttest_with_counts <- function(m, column_to_use, type_label, freq_tbl) {
+    if (!nrow(m) || !all(c("filename", column_to_use, "beta1") %in% names(m))) return(NULL)
+
+    # keep only filenames in the sample; replicate rows by sampled multiplicity
+    reps <- as.integer(freq_tbl[match(m$filename, names(freq_tbl))])
+    m$..rep <- reps
+    m <- m[!is.na(m$..rep) & m$..rep > 0L, , drop = FALSE]
+    if (!nrow(m)) return(NULL)
+    m <- m[rep(seq_len(nrow(m)), times = m$..rep), , drop = FALSE]
+
+    x <- m[[column_to_use]]
+    y <- m$beta1
+    if (length(x) < 4L || all(!is.finite(x)) || all(!is.finite(y))) return(NULL)
+
+    med <- stats::median(x, na.rm = TRUE)
+    if (grepl("slope", column_to_use, ignore.case = TRUE)) {
+      grp <- ifelse(x < med, "gentle", "steep"); g1 <- "gentle"; g2 <- "steep"
+    } else if (grepl("depth", column_to_use, ignore.case = TRUE)) {
+      grp <- ifelse(x < med, "deep", "shallow"); g1 <- "deep"; g2 <- "shallow"
+    } else { grp <- ifelse(x < med, "low", "high"); g1 <- "low"; g2 <- "high" }
+
+    if (sum(grp == g1, na.rm = TRUE) < 2L || sum(grp == g2, na.rm = TRUE) < 2L) return(NULL)
+
+    pval <- tryCatch(stats::t.test(y[grp == g1], y[grp == g2], var.equal = FALSE)$p.value,
+                     error = function(e) NA_real_)
+    data.frame(
+      column          = column_to_use,
+      inner_radius_km = unique(m$inner_radius_km)[1],
+      outer_radius_km = unique(m$outer_radius_km)[1],
+      type            = type_label,
+      t_p_value       = pval,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # Optional parallel inside each bootstrap (plots stay serial)
+  if (PARALLEL_INSIDE) {
+    if (!requireNamespace("future.apply", quietly = TRUE)) stop("future.apply not available")
+    future::plan(future::multisession, workers = max(1, parallel::detectCores() - 1))
+  }
+
+  for (b in seq_len(RESAMPLING_N)) {
+    # ---- global, stratified resample of filenames (once per map) ----
+    stat_files <- unique(goodies_exclusive$filename)
+    non_files  <- unique(best$filename)
+    samp_stat  <- sample(stat_files, length(stat_files), replace = TRUE)
+    samp_non   <- sample(non_files,  length(non_files),  replace = TRUE)
+    tab_stat   <- table(samp_stat)  # multiplicities
+    tab_non    <- table(samp_non)
+
+    # ---- compute p-values across all cells using the same sampled sets ----
+    cell_fun <- function(i) {
+      inner <- radius_combos_res$inner_radius_km[[i]]
+      outer <- radius_combos_res$outer_radius_km[[i]]
+      df_r  <- dplyr::filter(df_input, inner_radius_km == inner, outer_radius_km == outer)
+
+      m_stat    <- dplyr::inner_join(df_r, dplyr::select(goodies_exclusive, filename, beta1), by = "filename")
+      m_nonstat <- dplyr::inner_join(df_r, dplyr::select(best,             filename, beta1), by = "filename")
+
+      list(
+        .ttest_with_counts(m_stat,    column_to_use, "Stationary",     tab_stat),
+        .ttest_with_counts(m_nonstat, column_to_use, "Non-stationary", tab_non)
+      )
+    }
+
+    pieces <- if (PARALLEL_INSIDE) {
+      future.apply::future_lapply(seq_len(nrow(radius_combos_res)), cell_fun)
+    } else {
+      lapply(seq_len(nrow(radius_combos_res)), cell_fun)
+    }
+    res_split_b <- data.table::rbindlist(unlist(pieces, recursive = FALSE), use.names = TRUE, fill = TRUE)
+    res_split_b <- as.data.frame(res_split_b)
+    if (!nrow(res_split_b)) next
+
+    res_split_b <- dplyr::mutate(res_split_b,
+      log_p = log10(pmax(t_p_value, 1e-12)),
+      fade  = t_p_value > 0.05
+    )
+
+    # ---- plot (same styling/limits as your SPLIT heatmap) ----
+    for (col in unique(res_split_b$column)) {
+      plot_data <- res_split_b |>
+        dplyr::filter(column == col) |>
+        dplyr::mutate(
+          inner_radius_km = factor(inner_radius_km),
+          outer_radius_km = factor(outer_radius_km),
+          alpha = ifelse(fade, 0.3, 1.0)
+        )
+
+      if (!nrow(plot_data)) next
+
+      x_levels <- levels(plot_data$outer_radius_km)
+      y_levels <- levels(plot_data$inner_radius_km)
+      x_breaks <- x_levels[seq(1, length(x_levels), by = 2)]
+      y_breaks <- y_levels[seq(1, length(y_levels), by = 2)]
+
+      png(sprintf("%s/median_split_log_p_heatmap_SPLIT_%s_%s_GLOBAL_b%03d.png",
+                  out_dir_res, col, RESAMPLING_SUFFIX, b),
+          width = 1600, height = 800, res = 150)
+      print(
+        ggplot(plot_data, aes(x = outer_radius_km, y = inner_radius_km, fill = log_p, alpha = alpha)) +
+          geom_tile(color = "grey90") +
+          facet_wrap(~type, ncol = 2) +
+          scale_fill_viridis_c(option = "inferno", name = "log10(p-value)",
+                               limits = c(-4, 0), breaks = c(-4, -3, -2, -1, 0)) +
+          scale_alpha_identity() +
+          scale_x_discrete(breaks = x_breaks) +
+          scale_y_discrete(breaks = y_breaks) +
+          labs(title = paste("Global bootstrap", b, "— Median split Welch t-test log10(p) for", col, "vs β"),
+               x = "Outer radius (km)", y = "Inner radius (km)") +
+          theme_minimal(base_size = 14) +
+          theme(strip.text = element_text(size = 14, face = "bold"),
+                axis.text.x = element_text(angle = 45, hjust = 1))
+      )
+      dev.off()
+    }
+  }
+
+  if (PARALLEL_INSIDE) future::plan(future::sequential)
+}
+
+```
+
+# Switchable loo for robustness-testing
+```{r heatmap-split-RESAMPLING-global-loo}
+
+
+if (RESAMPLING_ON && exists("df_input") && exists("goodies_exclusive") && exists("best")) {
+  out_dir_res <- file.path(fig_dir, RESAMPLING_loo_SUFFIX)
+  if (!dir.exists(out_dir_res)) dir.create(out_dir_res, recursive = TRUE, showWarnings = FALSE)
+
+  # radius grid
+  radius_combos_res <- df_input |>
+    dplyr::select(inner_radius_km, outer_radius_km) |>
+    dplyr::distinct() |>
+    dplyr::arrange(inner_radius_km, outer_radius_km)
+
+  # stations per status
+  stat_files <- sort(unique(goodies_exclusive$filename))
+  non_files  <- sort(unique(best$filename))
+  n_stat <- length(stat_files)
+  n_non  <- length(non_files)
+
+  # Reuse the “counts” interface from earlier bootstrap code
+  .ttest_with_counts <- function(m, column_to_use, type_label, freq_vec) {
+    if (!nrow(m) || !all(c("filename", column_to_use, "beta1") %in% names(m))) return(NULL)
+    reps <- as.integer(freq_vec[match(m$filename, names(freq_vec))])
+    m$..rep <- reps
+    m <- m[!is.na(m$..rep) & m$..rep > 0L, , drop = FALSE]
+    if (!nrow(m)) return(NULL)
+    m <- m[rep(seq_len(nrow(m)), times = m$..rep), , drop = FALSE]
+
+    x <- m[[column_to_use]]; y <- m$beta1
+    if (length(x) < 4L || all(!is.finite(x)) || all(!is.finite(y))) return(NULL)
+
+    med <- stats::median(x, na.rm = TRUE)
+    if (grepl("slope", column_to_use, ignore.case = TRUE)) {
+      grp <- ifelse(x < med, "gentle", "steep"); g1 <- "gentle"; g2 <- "steep"
+    } else if (grepl("depth", column_to_use, ignore.case = TRUE)) {
+      grp <- ifelse(x < med, "deep", "shallow"); g1 <- "deep"; g2 <- "shallow"
+    } else { grp <- ifelse(x < med, "low", "high"); g1 <- "low"; g2 <- "high" }
+
+    if (sum(grp == g1, na.rm = TRUE) < 2L || sum(grp == g2, na.rm = TRUE) < 2L) return(NULL)
+
+    pval <- tryCatch(stats::t.test(y[grp == g1], y[grp == g2], var.equal = FALSE)$p.value,
+                     error = function(e) NA_real_)
+    data.frame(
+      column          = column_to_use,
+      inner_radius_km = unique(m$inner_radius_km)[1],
+      outer_radius_km = unique(m$outer_radius_km)[1],
+      type            = type_label,
+      t_p_value       = pval,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  if (PARALLEL_INSIDE) {
+    if (!requireNamespace("future.apply", quietly = TRUE)) stop("future.apply not available")
+    future::plan(future::multisession, workers = max(1, parallel::detectCores() - 1))
+  }
+
+  for (b in seq_len(RESAMPLING_loo_N)) {
+    # --- LOO multiplicities (1 for keep, 0 for the one we omit) ---
+    freq_stat <- setNames(rep(1L, n_stat), stat_files)
+    freq_non  <- setNames(rep(1L, n_non),  non_files)
+
+    if (LOO_MODE %in% c("paired","stationary") && n_stat > 0L) {
+      drop_stat <- stat_files[((b - 1L) %% n_stat) + 1L]
+      freq_stat[drop_stat] <- 0L
+    }
+    if (LOO_MODE %in% c("paired","nonstationary") && n_non > 0L) {
+      drop_non  <- non_files[((b - 1L) %% n_non) + 1L]
+      freq_non[drop_non] <- 0L
+    }
+
+    # --- compute p-values across all cells using the same omitted ids ---
+    cell_fun <- function(i) {
+      inner <- radius_combos_res$inner_radius_km[[i]]
+      outer <- radius_combos_res$outer_radius_km[[i]]
+      df_r  <- dplyr::filter(df_input, inner_radius_km == inner, outer_radius_km == outer)
+
+      m_stat    <- dplyr::inner_join(df_r, dplyr::select(goodies_exclusive, filename, beta1), by = "filename")
+      m_nonstat <- dplyr::inner_join(df_r, dplyr::select(best,             filename, beta1), by = "filename")
+
+      list(
+        .ttest_with_counts(m_stat,    column_to_use, "Stationary",     freq_stat),
+        .ttest_with_counts(m_nonstat, column_to_use, "Non-stationary", freq_non)
+      )
+    }
+
+    pieces <- if (PARALLEL_INSIDE) {
+      future.apply::future_lapply(seq_len(nrow(radius_combos_res)), cell_fun)
+    } else {
+      lapply(seq_len(nrow(radius_combos_res)), cell_fun)
+    }
+    res_split_b <- data.table::rbindlist(unlist(pieces, recursive = FALSE), use.names = TRUE, fill = TRUE)
+    res_split_b <- as.data.frame(res_split_b)
+    if (!nrow(res_split_b)) next
+
+    res_split_b <- dplyr::mutate(res_split_b,
+      log_p = log10(pmax(t_p_value, 1e-12)),
+      fade  = t_p_value > 0.05
+    )
+
+    # --- plot (same styling/limits as your SPLIT heatmap) ---
+    for (col in unique(res_split_b$column)) {
+      plot_data <- res_split_b |>
+        dplyr::filter(column == col) |>
+        dplyr::mutate(
+          inner_radius_km = factor(inner_radius_km),
+          outer_radius_km = factor(outer_radius_km),
+          alpha = ifelse(fade, 0.3, 1.0)
+        )
+
+      if (!nrow(plot_data)) next
+
+      x_levels <- levels(plot_data$outer_radius_km)
+      y_levels <- levels(plot_data$inner_radius_km)
+      x_breaks <- x_levels[seq(1, length(x_levels), by = 2)]
+      y_breaks <- y_levels[seq(1, length(y_levels), by = 2)]
+
+      fname <- sprintf(
+        "%s/median_split_log_p_heatmap_SPLIT_%s_%s_%s_b%03d.png",
+        out_dir_res, col, RESAMPLING_loo_SUFFIX, toupper(LOO_MODE), b
+      )
+      png(fname, width = 1600, height = 800, res = 150)
+      print(
+        ggplot(plot_data, aes(x = outer_radius_km, y = inner_radius_km, fill = log_p, alpha = alpha)) +
+          geom_tile(color = "grey90") +
+          facet_wrap(~type, ncol = 2) +
+          scale_fill_viridis_c(option = "inferno", name = "log10(p-value)",
+                               limits = c(-4, 0), breaks = c(-4, -3, -2, -1, 0)) +
+          scale_alpha_identity() +
+          scale_x_discrete(breaks = x_breaks) +
+          scale_y_discrete(breaks = y_breaks) +
+          labs(title = paste("LOO map", b, "— Median split Welch t-test log10(p) for", col, "vs β"),
+               x = "Outer radius (km)", y = "Inner radius (km)") +
+          theme_minimal(base_size = 14) +
+          theme(strip.text = element_text(size = 14, face = "bold"),
+                axis.text.x = element_text(angle = 45, hjust = 1))
+      )
+      dev.off()
+    }
+  }
+
+  if (PARALLEL_INSIDE) future::plan(future::sequential)
+}
+
+```
+
+
+# GOOD depth or slope as heatmap colours 
+```{r}
+# depth or slope as heatmap colours — with alpha driven by significance
+alpha_level <- 0.05  # same logic as earlier heatmaps
+
+if (exists("res_split") && nrow(res_split)) {
+  for (col in unique(res_split$column)) {
+    val_col <- col  # "depth_band_median_m" or "slope_median"
+
+    # Median value per (inner, outer)
+    source_values <- df_input %>%
+      dplyr::group_by(inner_radius_km, outer_radius_km) %>%
+      dplyr::summarise(value = median(.data[[val_col]], na.rm = TRUE), .groups = "drop")
+
+    # p-values per (inner, outer, type) for this column
+    pv <- res_split %>%
+      dplyr::filter(column == col) %>%
+      dplyr::select(inner_radius_km, outer_radius_km, type, t_p_value)
+
+    # Join value + p, then set alpha from significance
+    plot_data <- pv %>%
+      dplyr::left_join(source_values, by = c("inner_radius_km", "outer_radius_km")) %>%
+      dplyr::mutate(
+        inner_radius_km = factor(inner_radius_km),
+        outer_radius_km = factor(outer_radius_km),
+        alpha = dplyr::if_else(
+          is.finite(value) & is.finite(t_p_value) & (t_p_value <= alpha_level),
+          1.0, 0.3
+        )
+      )
+
+    x_levels <- levels(plot_data$outer_radius_km)
+    y_levels <- levels(plot_data$inner_radius_km)
+    x_breaks <- x_levels[seq(1, length(x_levels), by = 2)]
+    y_breaks <- y_levels[seq(1, length(y_levels), by = 2)]
+
+    png(sprintf("%s/median_%s_heatmap_SPLIT.png", fig_dir, col), width = 1600, height = 800, res = 150)
+    print(
+      ggplot(plot_data, aes(x = outer_radius_km, y = inner_radius_km,
+                            fill = value, alpha = alpha)) +
+        geom_tile(color = "grey90") +
+        facet_wrap(~type, ncol = 2) +
+        scale_fill_viridis_c(name = ifelse(col == "depth_band_median_m", "Median depth (m)", "Median slope")) +
+        scale_alpha_identity() +  # use alpha as-is; no legend
+        scale_x_discrete(breaks = x_breaks) +
+        scale_y_discrete(breaks = y_breaks) +
+        labs(title = paste("Median", col, "by spatial window"),
+             x = "Outer radius (km)", y = "Inner radius (km)") +
+        theme_minimal(base_size = 14) +
+        theme(strip.text = element_text(size = 14, face = "bold"),
+              axis.text.x = element_text(angle = 45, hjust = 1))
+    )
+    dev.off()
+  }
+}
+
+```
+
+
+
+
+### Heatmap of log10(p) — ALL (single panel)
+
+```{r heatmap-all}
+if (if_ALL){
+  if (nrow(results_all) > 0) {
+    res_all <- results_all %>% dplyr::mutate(log_p = log10(pmax(t_p_value, 1e-12)), fade = t_p_value > 0.05)
+    for (col in unique(res_all$column)) {
+      plot_data <- res_all %>% dplyr::filter(column == col) %>% dplyr::mutate(inner_radius_km = factor(inner_radius_km), outer_radius_km = factor(outer_radius_km), alpha = ifelse(fade, 0.3, 1.0))
+      
+      x_levels <- levels(plot_data$outer_radius_km)
+      y_levels <- levels(plot_data$inner_radius_km)
+      x_breaks <- x_levels[seq(1, length(x_levels), by = 2)]
+      y_breaks <- y_levels[seq(1, length(y_levels), by = 2)]
+      
+      png(sprintf("%s/median_split_log_p_heatmap_ALL_%s.png", fig_dir, col), width = 1200, height = 800, res = 150)
+      print(
+        ggplot(plot_data, aes(x = outer_radius_km, y = inner_radius_km, fill = log_p, alpha = alpha)) +
+          geom_tile(color = "grey90") +
+          scale_fill_viridis_c(option = "inferno", name = "log10(p-value)", limits = c(-4, 0), breaks = c(-4, -3, -2, -1, 0)) +
+          scale_alpha_identity() +
+          scale_x_discrete(breaks = x_breaks) +
+          scale_y_discrete(breaks = y_breaks) +
+          labs(title = paste("Median Split t-test p-values for ALL —", col, "vs beta"), x = "Outer radius (km)", y = "Inner radius (km)") +
+          theme_minimal(base_size = 14) +
+          theme(strip.text = element_text(size = 14, face = "bold"), axis.text.x = element_text(angle = 45, hjust = 1))
+      )
+      dev.off()
+    }
+  }
+} # end if_ALL
+```
+
+### Regression per window (β ~ covariate)
+
+```{r regression}
+
+if (if_regression){
+  regression_results <- tibble::tibble()
+  for (i in seq_len(nrow(radius_combos))) {
+    inner <- radius_combos$inner_radius_km[i]
+    outer <- radius_combos$outer_radius_km[i]
+    
+    merged_all <- df_input %>%
+      dplyr::filter(inner_radius_km == inner, outer_radius_km == outer) %>%
+      dplyr::inner_join(all_beta, by = "filename")
+    
+    # Only proceed if at least 4 valid (non-missing) values
+    x <- merged_all[[column_to_use]]
+    y <- merged_all$beta1
+    if (length(x) < 4 || all(is.na(x))) next
+    
+    dat <- na.omit(data.frame(beta = y, covar = x))
+    
+    # Fit linear regression: beta ~ covar
+    lmfit <- lm(beta ~ covar, data = dat)
+    s_lm <- summary(lmfit)
+    
+    regression_results <- dplyr::bind_rows(
+      regression_results,
+      tibble::tibble(
+        inner_radius_km = inner,
+        outer_radius_km = outer,
+        covariate = column_to_use,
+        estimate = s_lm$coefficients["covar", "Estimate"],
+        p_value = s_lm$coefficients["covar", "Pr(>|t|)"],
+        r_squared = s_lm$r.squared,
+        n = nrow(dat)
+      )
+    )
+  }
+  
+  # Visualize p_value, r_squared, or estimate by (inner_radius_km, outer_radius_km)
+  pp <- ggplot(regression_results, aes(x = factor(outer_radius_km), y = factor(inner_radius_km), fill = -log10(pmax(p_value, 1e-12)))) +
+    geom_tile(color = "grey90") +
+    scale_fill_viridis_c(name = "–log₁₀(p-value) Estimate") +
+    labs(
+      x = "Outer radius (km)",
+      y = "Inner radius (km)",
+      title = "β ~ slope: Effect size by spatial window"
+    ) +
+    theme_minimal(base_size = 14)
+  print(pp)
+  png(paste0("FIGURES/BOXPLOTS/heatmap_regression_",column_to_use,".png"))
+  print(pp)
+  dev.off()
+  
+  pp <- ggplot(regression_results, aes(x = factor(outer_radius_km), y = factor(inner_radius_km), fill = r_squared)) +
+    geom_tile(color = "grey90") +
+    scale_fill_viridis_c(name = "R²") +
+    labs(
+      x = "Outer radius (km)",
+      y = "Inner radius (km)",
+      title = "β ~ slope: R² by spatial window"
+    ) +
+    theme_minimal(base_size = 14)
+  print(pp)
+  png(paste0("FIGURES/BOXPLOTS/heatmap_Rsquared_",column_to_use,".png"))
+  print(pp)
+  dev.off()
+  
+  pp <- ggplot(regression_results, aes(x = factor(outer_radius_km), y = factor(inner_radius_km), fill = -log10(pmax(p_value, 1e-12)))) +
+    geom_tile(color = "grey90") +
+    scale_fill_viridis_c(name = "–log₁₀(p-value) Estimate") +
+    labs(
+      x = "Outer radius (km)",
+      y = "Inner radius (km)",
+      title = "β ~ slope: Effect size by spatial window"
+    ) +
+    theme_minimal(base_size = 14)
+  print(pp)
+  png(paste0("FIGURES/BOXPLOTS/heatmap_pvalue_",column_to_use,".png"))
+  print(pp)
+  dev.off()
+} # end if_regression
+```

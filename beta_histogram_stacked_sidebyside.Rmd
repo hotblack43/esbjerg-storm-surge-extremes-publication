@@ -1,0 +1,171 @@
+---
+title: "Beta histograms: stacked + grouped pairs"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+params:
+  beta_col_best: NULL
+  beta_col_goodies: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.width = 9, fig.height = 5, fig.align = "center")
+set.seed(1)
+# default params when not rendered with rmarkdown::render(params=...)
+if (!exists("params")) params <- list(beta_col_best = NULL, beta_col_goodies = NULL)
+```
+
+```{r data}
+rm(list = ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION")
+
+best    <- readRDS('OUTPUT/the_best.rds')
+goodies <- readRDS('OUTPUT/the_goodies.rds')
+
+# Drop goodies that are also in best (by filename) if that field exists
+if ("filename" %in% names(goodies) && "filename" %in% names(best)) {
+  in_best <- goodies$filename %in% best$filename
+  in_best[is.na(in_best)] <- FALSE
+  goodies <- goodies[!in_best, , drop = FALSE]
+}
+
+# Robust selector for the "beta" column
+select_beta <- function(df, prefer = NULL, label = "") {
+  # 1) explicit preference
+  if (!is.null(prefer) && prefer %in% names(df)) {
+    v <- suppressWarnings(as.numeric(df[[prefer]]))
+    if (any(is.finite(v))) { cat("Selected(override):", prefer, "for", label, "
+"); return(v) }
+  }
+  nms <- names(df)
+  # 2) exact 'beta' (any case)
+  exact <- nms[match(tolower("beta"), tolower(nms), nomatch = 0)]
+  if (length(exact) == 1) {
+    cat("Selected(exact):", exact, "for", label, "
+"); return(as.numeric(df[[exact]]))
+  }
+  # 3) contains 'beta' or Greek 'β'
+  has_beta <- grepl("beta|β", nms, ignore.case = TRUE)
+  if (any(has_beta)) {
+    cand <- nms[has_beta][1]
+    cat("Selected(partial):", cand, "for", label, "
+"); return(as.numeric(df[[cand]]))
+  }
+  # 4) fallback: pick first *numeric* column that isn't an id/geo/time field
+  bad_like <- c("filename","file","id","station","site","name","lon","long","longitude","lat","latitude","x","y","date","time","datetime","year","month","day","hour","minute","second")
+  is_bad <- tolower(nms) %in% bad_like
+  num_idx <- vapply(df, function(x) is.numeric(x) || is.integer(x), logical(1)) & !is_bad
+  if (!any(num_idx)) stop("No usable numeric column found; supply params$beta_col_*.")
+  cand_nms <- nms[num_idx]
+  # choose the one with the largest variance (why: likely a measured parameter)
+  sds <- vapply(cand_nms, function(nm) stats::sd(suppressWarnings(as.numeric(df[[nm]])), na.rm = TRUE), numeric(1))
+  cand <- cand_nms[which.max(sds)]
+  cat("Selected(fallback):", cand, "for", label, "
+")
+  as.numeric(df[[cand]])
+}
+
+b_goodies <- select_beta(goodies, prefer = params$beta_col_goodies, label = "goodies")
+b_best    <- select_beta(best,    prefer = params$beta_col_best,    label = "best")
+
+# Basic checks
+stopifnot(length(b_goodies) > 0, length(b_best) > 0)
+stopifnot(any(is.finite(b_goodies)), any(is.finite(b_best)))
+```
+
+```{r breaks-and-hist}
+rng <- range(c(b_goodies, b_best), finite = TRUE)
+breaks <- sort(unique(pretty(rng, n = 40)))
+if (length(breaks) < 2) breaks <- seq(rng[1], rng[2], length.out = 11)
+
+h_blue <- hist(b_goodies, breaks = breaks, right = FALSE, plot = FALSE)
+h_red  <- hist(b_best,    breaks = breaks, right = FALSE, plot = FALSE)
+
+ylim <- c(0, max(h_blue$counts, h_red$counts))
+```
+
+```{r plot1, fig.cap="Overlaid histograms: goodies (blue) then best (red)."}
+plot(NA, xlab = expression(beta), ylab = "N",
+     xlim = range(breaks), ylim = ylim,
+     main = "Histograms of beta — overlaid (blue then red)")
+
+for (i in seq_along(h_blue$counts)) {
+  rect(h_blue$breaks[i], 0, h_blue$breaks[i + 1], h_blue$counts[i],
+       col = "blue", border = "blue", density = 20, angle = -45)
+}
+for (i in seq_along(h_red$counts)) {
+  rect(h_red$breaks[i], 0, h_red$breaks[i + 1], h_red$counts[i],
+       col = "red", border = "red", density = 20, angle = 45)
+}
+
+legend("topright",
+       legend = c("Stationary", "Non-stationary"),
+       fill = c("blue", "red"), border = c("blue", "red"),
+       density = c(20, 20), angle = c(-45, 45),
+       bty = "n")
+```
+
+```{r plot2-fun}
+plot_grouped_histograms <- function(h_blue, h_red, breaks,
+                                    col1 = "blue", col2 = "red",
+                                    density = 20, angle = c(-45, 45),
+                                    frac = 0.42, gap = 0.06) {
+  stopifnot(length(h_blue$counts) == length(h_red$counts))
+  nb <- length(h_blue$counts)
+  ylim <- c(0, max(h_blue$counts, h_red$counts))
+  plot(NA, xlab = expression(beta), ylab = "N",
+       xlim = range(breaks), ylim = ylim,
+       main = "Histograms of beta — grouped pairs with white space")
+
+  for (i in seq_len(nb)) {
+    xl <- breaks[i]; xr <- breaks[i + 1]
+    w  <- xr - xl
+    xc <- (xl + xr) / 2
+    left_x1  <- xc - w * (gap / 2 + frac)
+    left_x2  <- xc - w *  gap / 2
+    right_x1 <- xc + w *  gap / 2
+    right_x2 <- xc + w * (gap / 2 + frac)
+
+    rect(left_x1,  0, left_x2,  h_blue$counts[i],
+         col = col1, border = col1, density = density, angle = angle[1])
+    rect(right_x1, 0, right_x2, h_red$counts[i],
+         col = col2, border = col2, density = density, angle = angle[2])
+  }
+
+  legend("topright",
+         legend = c("Stationary", "Non-stationary"),
+         fill = c(col1, col2), border = c(col1, col2),
+         density = c(density, density), angle = c(angle[1], angle[2]),
+         bty = "n")
+}
+```
+
+```{r plot2, fig.cap="Grouped pairs with white space between pairs."}
+plot_grouped_histograms(h_blue, h_red, breaks)
+```
+
+```{r save-pngs, eval=TRUE, include=FALSE}
+if (!dir.exists("FIGURES")) dir.create("FIGURES", recursive = TRUE)
+
+png("FIGURES/beta_histograms_overlaid.png", width = 1400, height = 900, res = 150)
+  ylim <- c(0, max(h_blue$counts, h_red$counts))
+  plot(NA, xlab = expression(beta), ylab = "N", xlim = range(breaks), ylim = ylim,
+       main = "Histograms of beta — overlaid (blue then red)")
+  for (i in seq_along(h_blue$counts)) {
+    rect(h_blue$breaks[i], 0, h_blue$breaks[i + 1], h_blue$counts[i],
+         col = "blue", border = "blue", density = 20, angle = -45)
+  }
+  for (i in seq_along(h_red$counts)) {
+    rect(h_red$breaks[i], 0, h_red$breaks[i + 1], h_red$counts[i],
+         col = "red", border = "red", density = 20, angle = 45)
+  }
+  legend("topright", legend = c("Stationary", "Non-stationary"),
+         fill = c("blue", "red"), border = c("blue", "red"),
+         density = c(20,20), angle = c(-45,45), bty = "n")
+dev.off()
+
+png("FIGURES/beta_histograms_grouped.png", width = 1400, height = 900, res = 150)
+  plot_grouped_histograms(h_blue, h_red, breaks)
+dev.off()
+```

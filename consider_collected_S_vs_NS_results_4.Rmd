@@ -1,0 +1,179 @@
+---
+title: "Considering the results of S vs NS testing on GESLA residuals - v9"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/esbjerg-storm-surge-extremes-publication")
+df <- read.csv("RESULTS/merged.csv", header=T, sep=",")
+
+```
+
+# Clean up the df
+```{r}
+if_cleanup <- TRUE
+if (if_cleanup){
+  #df <- df[!grepl("aburatsubo", df[[1]]), ]
+  #df <- df[!grepl("aburatsu_v2", df[[1]]), ]
+  #df <- df[!grepl("adak_alaska", df[[1]]), ]
+  #df <- df[!grepl("ashland", df[[1]]), ]
+  #df <- df[!grepl("astoria_or", df[[1]]), ]
+  #df <- df[!grepl("atlantic_city_nj", df[[1]]), ]
+  df <- df[!grepl("aomorika", df[[1]]), ]
+  #df <- df[!grepl("boston_ma", df[[1]]), ]
+  #df <- df[!grepl("brest_60", df[[1]]), ]
+  #df <- df[!grepl("brest_annual", df[[1]]), ]
+  #df <- df[!grepl("ceuta_v1", df[[1]]), ]
+  df <- df[!grepl("churchill", df[[1]]), ] # due to the ice
+  #df <- df[!grepl("crescent_city_ca", df[[1]]), ]
+  #df <- df[!grepl("eastport_me", df[[1]]), ]
+  #df <- df[!grepl("fort_pulaski_ga", df[[1]]), ]
+  #df <- df[!grepl("frontenac", df[[1]]), ]
+  #df <- df[!grepl("furuogrund", df[[1]]), ]
+  df <- df[!grepl("furuogrund-2055", df[[1]]), ]
+  #df <- df[!grepl("galveston_pier_21_annual", df[[1]]), ]
+  #df <- df[!grepl("gedser_annual", df[[1]]), ]
+  df <- df[!grepl("harlingen", df[[1]]), ]
+  df <- df[!grepl("hanasaki", df[[1]]), ]
+  #df <- df[!grepl("honolulu_annual", df[[1]]), ]
+  df <- df[!grepl("hornbaek", df[[1]]), ]
+  df <- df[!grepl("izuhara", df[[1]]), ]
+  #df <- df[!grepl("heesbeen_annual", df[[1]]), ]
+  #df <- df[!grepl("kahului_v1", df[[1]]), ]
+  df <- df[!grepl("kamaishi", df[[1]]), ]
+  #df <- df[!grepl("key_west_fl", df[[1]]), ]
+  #df <- df[!grepl("klagshamn_v1", df[[1]]), ]
+  #df <- df[!grepl("kungsholmsfort_v3", df[[1]]), ]
+  #df <- df[!grepl("kungsholmsfort_v1", df[[1]]), ]
+  df <- df[!grepl("kungsholmsfort-kun", df[[1]]), ] # form of duplicate
+  #df <- df[!grepl("kushimoto_annual", df[[1]]), ]
+  #df <- df[!grepl("kushiro_v1", df[[1]]), ]
+  df <- df[!grepl("kobe", df[[1]]), ]
+  df <- df[!grepl("kozushima", df[[1]]), ]
+  #df <- df[!grepl("la_jolla_ca", df[[1]]), ]
+  #df <- df[!grepl("la_libertad", df[[1]]), ]
+  df <- df[!grepl("landsort", df[[1]]), ] # are there two different ones in GESLA3?
+  #df <- df[!grepl("los_angeles_ca", df[[1]]), ]
+  #df <- df[!grepl("magueyes_island_pr", df[[1]]), ]
+  df <- df[!grepl("maisaka", df[[1]]), ]
+  #df <- df[!grepl("marviken_v1", df[[1]]), ]
+  #df <- df[!grepl("mayport_ferry", df[[1]]), ]
+  #df <- df[!grepl("montauk_ny", df[[1]]), ]
+  #df <- df[!grepl("montreal", df[[1]]), ]
+  #df <- df[!grepl("nawiliwili_v2", df[[1]]), ]
+  df <- df[!grepl("naze", df[[1]]), ]
+  #df <- df[!grepl("neah_bay_wa", df[[1]]), ]
+  #df <- df[!grepl("new_london_ct", df[[1]]), ]
+  #df <- df[!grepl("newport_ri", df[[1]]), ]
+  df <- df[!grepl("ontario", df[[1]]), ]
+  df <- df[!grepl("ominato", df[[1]]), ]
+  df <- df[!grepl("onahama", df[[1]]), ]
+  #df <- df[!grepl("oskarshamn_v3", df[[1]]), ]
+  #df <- df[!grepl("pensacola_fl", df[[1]]), ]
+  #df <- df[!grepl("port_isabel_tx", df[[1]]), ]
+  #df <- df[!grepl("port_isabel_tx", df[[1]]), ]
+  #df <- df[!grepl("portland_me", df[[1]]), ]
+  #df <- df[!grepl("port_san_luis_ca", df[[1]]), ]
+  #df <- df[!grepl("ratan_v1", df[[1]]), ]
+  #df <- df[!grepl("rochester", df[[1]]), ]
+  #df <- df[!grepl("san_diego_ca", df[[1]]), ]
+  #df <- df[!grepl("san_francisco_annual", df[[1]]), ]
+  df <- df[!grepl("sitka_ak", df[[1]]), ]
+  #df <- df[!grepl("smogen_v1", df[[1]]), ]
+  #df <- df[!grepl("stenungsund_v1", df[[1]]), ]
+  #df <- df[!grepl("steubenhoft", df[[1]]), ]
+  #df <- df[!grepl("st_marys", df[[1]]), ]
+  #df <- df[!grepl("stockholm_v1", df[[1]]), ]
+  #df <- df[!grepl("stockholm_v2", df[[1]]), ]
+  #df <- df[!grepl("st_petersburg_fl", df[[1]]), ]
+  #df <- df[!grepl("southampton", df[[1]]), ]
+  #df <- df[!grepl("tregde_annual", df[[1]]), ]
+  df <- df[!grepl("tokyo", df[[1]]), ]
+  #df <- df[!grepl("varberg_annual", df[[1]]), ]
+  #df <- df[!grepl("wake_annual", df[[1]]), ]
+  #df <- df[!grepl("wilmington_nc", df[[1]]), ]
+  df <- df[!grepl("yakutat-9", df[[1]]), ]
+}
+```
+
+
+# Find clear NS cases
+```{r}
+goodies <- df
+goodies$AICbest <- ''
+goodies$BICbest <- ''
+idx <- which((df$AIC_s > df$AIC_ns)) 
+goodies$AICbest[idx] <- '*'
+jdx <- which( (df$BIC_s > df$BIC_ns))
+goodies$BICbest[jdx] <- '*'
+#
+
+```
+
+
+# Post calc
+```{r}
+goodies$delta_AIC <- goodies$AIC_s-goodies$AIC_ns
+goodies$delta_BIC <- goodies$BIC_s-goodies$BIC_ns
+idx <- which(goodies$delta_AIC > 0 & goodies$delta_BIC > 0 & goodies$LRT_p < 0.05)
+best <- goodies[idx,]
+
+```
+
+
+# plots
+```{r}
+plot(df$LRT_p,df$LRT_stat,pch=19)
+abline(v=0.05)
+hist(df$beta1,breaks=17)
+
+
+hist(goodies$beta1,breaks=19)
+png("FIGURES/hist_beta_best.png")
+par(mar = c(5, 5, 4, 2))  # Bottom, Left, Top, Right margins (in lines)
+# Increase 5 (left) for more space
+
+hist(best$beta1, breaks = 11,
+     xlab = expression(beta),
+     ylab = "N",
+     main = "Significantly non-stationary",
+     cex.lab = 1.5,
+     cex.main = 1.8,
+     cex.axis = 1.2,
+     mgp = c(2.5, 1, 0)  # Moves axis title (ylab) away from axis
+)
+dev.off()
+
+plot(goodies$delta_AIC,goodies$deltaBIC,pch=19,ylab="AIC_S - AIC_NS",xlab="Station")
+abline(h=0,col='red',lty=2)
+
+#
+plot(goodies$LRT_p,goodies$delta_AIC,pch=19,log='y',xlim=c(0,0.2),ylab="delta AIC",xlab="LRT p")
+abline(v=0.05,lty=2,col=2,lwd=3)
+abline(h=1.75,lty=2,col=2,lwd=3)
+```
+
+
+
+
+```{r}
+idx <- which(goodies$LRT_p < 0.05 & goodies$delta_BIC > 0 & goodies$delta_AIC > 0)
+best <- goodies[idx,]
+
+# save it
+
+saveRDS(best, 'OUTPUT/the_best.rds')
+saveRDS(goodies, 'OUTPUT/the_goodies.rds')
+write.csv(goodies, "OUTPUT/the_goodies.csv", row.names = FALSE)
+
+#
+print(round(nrow(best)/nrow(goodies)*100,0))
+```
+
+
+

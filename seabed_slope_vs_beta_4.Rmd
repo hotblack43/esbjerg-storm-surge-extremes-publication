@@ -1,0 +1,95 @@
+---
+title: "Is seabed slope a factor in non-stationarity of storm surges?"
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+```{r}
+rm(list=ls())
+setwd("~/WORKSHOP/ESBJERG2/PUBLICATION")
+
+# --- Load Data ---
+#slopes <- read.csv("~/WORKSHOP/LOS/seabed_slopes_3_9.csv")
+slopes <- read.csv("~/WORKSHOP/LOS/seabed_slopes_3_10.csv")
+#slopes <- read.csv("~/WORKSHOP/LOS/seabed_slopes_3_11.csv")
+betas  <- read.csv("RESULTS/merged.csv")
+best   <- readRDS("OUTPUT/the_best.rds")
+```
+  
+
+```{r}
+
+ 
+# User selection: "slope_min" or "slope_med"
+slope_type <- "slope_med" # slope_min"  # or "slope_med"
+
+# Assign slope column for analysis
+slopes$slope <- slopes[[slope_type]]
+
+# Normalize names
+slopes$filename <- trimws(tolower(slopes$filename))
+betas$filename  <- trimws(tolower(betas$filename))
+best$filename   <- trimws(tolower(best$filename))
+
+# Merge slope and beta1
+merged <- merge(slopes, betas, by = "filename")
+merged <- na.omit(merged)
+
+# Exclude best stations
+merged_wo_best <- subset(merged, !(filename %in% best$filename))
+
+# Append slope to best
+best$slope <- merged$slope[match(best$filename, merged$filename)]
+best$beta1 <- merged$beta1[match(best$filename, merged$filename)]
+
+# Grouping (flip sign to treat more negative as "steep")
+threshold <- median(merged_wo_best$slope, na.rm = TRUE)
+merged_wo_best$slope_group <- ifelse(merged_wo_best$slope < threshold, "steep", "shallow")
+best$slope_group <- ifelse(best$slope < threshold, "steep", "shallow")
+
+# Plot slope distribution with cutoff
+hist(merged_wo_best$slope, breaks = 40,
+     main = paste("Distribution of", slope_type),
+     xlab = "Slope", col = "lightgray")
+abline(v = threshold, col = "red", lwd = 2, lty = 2)
+legend("topright", legend = c("Group cutoff (median)"),
+       col = "red", lwd = 2, lty = 2, bty = "n")
+
+# Boxplots
+#png(paste0("FIGURES/boxplots_compare_", slope_type, ".png"))
+png(
+  filename = paste0("FIGURES/boxplots_compare_", slope_type, ".png"),
+  width = 1600, height = 1200, res = 300
+)
+
+par(mfrow = c(1, 2))
+y_range <- range(c(merged_wo_best$beta1, best$beta1), na.rm = TRUE)
+
+boxplot(beta1 ~ slope_group, data = merged_wo_best,
+        #main = paste("All Stations -", slope_type),
+        main = "Stationary",
+        col = c("lightblue", "lightgreen"),
+        ylab = expression(beta), xlab = "Slope Category",
+        ylim = y_range)
+
+boxplot(beta1 ~ slope_group, data = best,
+        #main = paste("Best Stations -", slope_type),
+        main = "Non-stationary",
+        col = c("salmon", "tomato"),
+        ylab = expression(beta), xlab = "Slope Category",
+        ylim = y_range)
+
+dev.off()
+
+# Optional: Welch t-test
+t_all <- t.test(beta1 ~ slope_group, data = merged_wo_best)
+t_best <- t.test(beta1 ~ slope_group, data = best)
+print(t_all)
+print(t_best)
+
+
+
+```
+ 
+ 

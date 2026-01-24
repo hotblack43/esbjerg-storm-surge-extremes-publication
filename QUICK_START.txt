@@ -1,0 +1,219 @@
+QUICK START — ESBJERG2 / PUBLICATION (Linux)
+
+
+NB: See also the RUN_ORDER.txt file for reminders.
+==================================================
+
+Test case: stationary vs non-stationary extreme value test using GESLA tide gauge data.
+
+Tested workflow location:
+~/WORKSHOP/ESBJERG2/PUBLICATION/
+
+Date: 6 Aug 2025
+
+0) Start here
+cd ~/WORKSHOP/ESBJERG2/PUBLICATION/
+
+Install R packages (CRAN):
+R -q -e 'pkgs <- c("boot","data.table","DescTools","emmeans","evd","extRemes","future","future.apply","geosphere","lmtest","lubridate","readxl","reshape2","sandwich","scales","terra","TideHarmonics","tidyverse","viridis","xtable"); to_install <- setdiff(pkgs, rownames(installed.packages())); if (length(to_install)) install.packages(to_install, dependencies=TRUE)'
+
+
+This pipeline produces intermediate .rds files and can take hours depending on CPU and how many stations pass filters.
+
+1) Step 1 — Filter GESLA stations (“on-the-hour only” + length/completeness)
+
+Run:
+
+GESLA_data_checker_4.Rmd
+
+Purpose:
+
+Identify tide-gauge series that are long enough and “on-the-hour”.
+
+Save the accepted time series as .rds files.
+
+Output:
+
+OUTPUT/ONTHEHOUR2/ (RDS files)
+
+Important:
+
+Data units are metres (m), NOT cm.
+
+Notes:
+
+A log file is written listing stations that fail completeness / length requirements.
+
+You must choose minlength_yrs inside the Rmd.
+
+Optional de-duplication (safe):
+
+./safe_dedup.sh OUTPUT/ONTHEHOUR2/
+
+
+Optional QC:
+
+Some stations may contain offsets / shifts (rare). See later “Fix offsets” section.
+
+2) Step 2 — Compute tide residuals and annual maxima
+
+Run:
+
+ftide_residuals_5_SH_winteralso.Rmd
+
+Purpose:
+
+For each accepted station from Step 1, fit ftide() to the on-the-hour record.
+
+Compute:
+
+annual maximum residual surge
+
+annual mean sea level (MSL)
+
+Output:
+
+OUTPUT/ANNUALS2/ (RDS files)
+
+Optional de-duplication:
+
+./safe_dedup.sh OUTPUT/ANNUALS2/
+
+3) Step 3 — Stationary vs non-stationary test (resampling)
+
+Run:
+
+S_vs_NS_tester_7_resampling_MODIFIED.Rmd
+
+Purpose:
+
+Read every station file created in Step 2.
+
+Fit stationary and non-stationary extreme value models.
+
+Perform resampling-based test / model comparison.
+
+Output:
+
+A user-named text file, e.g.
+RESULTS/collected_S_vs_NS_test_results_RENAME_or_LOOSE.txt
+
+Important:
+
+This step can take a long time.
+
+4) Step 4 — Summarise the collected S vs NS results
+
+Run:
+
+consider_collected_S_vs_NS_results_4.Rmd
+
+Purpose:
+
+Read the collected results from Step 3.
+
+Summarise / filter / inspect.
+
+Output:
+
+summary tables / plots (see script output paths)
+
+5) Step 5 — Make the publication table
+
+Run:
+
+make_publication_table_4.Rmd
+
+Purpose:
+
+Produce the final table used in the manuscript / SI.
+
+Output:
+
+publication table files (see script output paths)
+
+6) Step 6 — Make station maps (Python)
+
+Run:
+
+uv run make_map_lon_lat_tidegauge_stations_15_satellite_zoom.py
+
+
+Purpose:
+
+Generate maps showing tide-gauge station locations.
+
+Auxiliaries (optional tools)
+Station metadata (lon/lat etc.)
+
+station_info.Rmd
+Builds required file of filenames and lon/lat.
+
+Remove duplicate files with identical contents
+
+safe_dedup.sh
+Removes files that are identical even if filenames differ.
+
+Check MSL range and offsets
+
+msl_range_and_offset_checker.Rmd
+
+Supplementary analysis plots + contingency tests
+
+analysis_plots_1.Rmd
+Builds SI tables and performs statistical tests on contingency tables.
+
+Depth/slope analysis (bathymetry)
+
+analysis_seabed_slope_or_depth_vs_34_new_3_GLOBALBEST_ANNOTATED_FIXED.Rmd
+Produces boxplots + t-test for depth/slope split in β, and a heatmap.
+
+ETOPO1_batimetri_3_several_depths.Rmd
+Depth analysis.
+
+seabed_slope_vs_beta_4.Rmd
+Seabed slope vs β for selected stations.
+
+Example helper:
+
+uv run coastline_slope_from_ascii.py --lon-min 5 --lon-max 20 --lat-min 50 --lat-max 62
+
+
+More slope/depth tools:
+
+LOS/looper_combined_slope_and_band.py
+Calculates slopes and depths for a set of radii.
+
+analysis_seabed_slope_or_depth_vs_34.Rmd
+Heatmap and boxplots.
+
+Fix offsets / shifts in some GESLA stations (visual QC)
+
+fix_shifts_in_GESLA_1_UPDATED.Rmd
+
+QC_duplicates_GESLA_3.Rmd
+
+Map with up/down MSL-trend symbols
+
+make_map_3.py
+Generates world + detail maps with trend symbols.
+
+merge_MSLslope_toDATAFRAME_the_best.Rmd
+Merges hand-edited Excel metadata with station trends into the_best_merged.rds
+(used by make_map_3.py).
+
+Minimal pipeline summary (copy/paste)
+
+GESLA_data_checker_4.Rmd → OUTPUT/ONTHEHOUR2/
+
+ftide_residuals_5_SH_winteralso.Rmd → OUTPUT/ANNUALS2/
+
+S_vs_NS_tester_7_resampling_MODIFIED.Rmd → RESULTS/collected_*.txt
+
+consider_collected_S_vs_NS_results_4.Rmd
+
+make_publication_table_4.Rmd
+
+uv run make_map_lon_lat_tidegauge_stations_15_satellite_zoom.py
+
+

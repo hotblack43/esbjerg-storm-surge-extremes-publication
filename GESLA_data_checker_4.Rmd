@@ -1,0 +1,193 @@
+---
+output: 
+  pdf_document: 
+    fig_height: 7
+---
+
+This is #1.
+# 2 is ftide_residuals_4.Rmd
+
+```{r}
+# Main script
+rm(list=ls())
+setwd("~/WORKSHOP/esbjerg-storm-surge-extremes-publication")
+
+library(tidyverse)
+library(lubridate)
+library(future.apply)
+#plan(multisession)
+
+minlength_yrs <- 55  # year span required
+pct_complete_req <- 85 # percentage completeness required
+
+#system("ls /home/pth/GESLA/* > DATA/GESLA_FILENAMES_HOME2.txt")
+filenames <- read.csv("DATA/GESLA_FILENAMES_HOME2.txt")
+#filenames <- read.csv("DATA/GESLA_FILENAMES_DMI.txt",header=FALSE)
+
+system('rm -f OUTPUT/ONTHEHOUR2/*')
+```
+
+```{r}
+get_header <- function(filepath) {
+  if (!file.exists(filepath)) {
+    stop("File does not exist: ", filepath)
+  }
+  header <- readLines(filepath, n = 41, warn = FALSE)
+  return(header)
+}
+```
+
+```{r}
+get_longitude <- function(header) {
+  
+  # Find the line containing 'LONGITUDE' (case-insensitive)
+  lon_line <- grep("LONGITUDE", header, ignore.case = TRUE, value = TRUE)
+  
+  if (length(lon_line) == 0) {
+    stop("No line containing 'LONGITUDE' found.")
+  }
+  
+  # Extract numeric value from the line
+  lon_value <- as.numeric(gsub(".*?([-]?[0-9]+\\.?[0-9]*).*", "\\1", lon_line[1]))
+  
+  if (is.na(lon_value)) {
+    stop("Longitude value could not be parsed.")
+  }
+  
+  return(lon_value)
+}
+```
+
+```{r}
+get_latitude <- function(header) {
+  
+  # Find the line containing 'LATITUDE' (case-insensitive)
+  linje <- grep("LATITUDE", header, ignore.case = TRUE, value = TRUE)
+  
+  if (length(linje) == 0) {
+    stop("No line containing 'LATITUDE' found.")
+  }
+  
+  # Extract numeric value from the line
+  lat_value <- as.numeric(gsub(".*?([-]?[0-9]+\\.?[0-9]*).*", "\\1", linje[1]))
+  
+  if (is.na(lat_value)) {
+    stop("Latitude value could not be parsed.")
+  }
+  
+  return(lat_value)
+}
+```
+
+```{r}
+get_country <- function(header) {
+  # Find the line containing 'COUNTRY' (case-insensitive)
+  linje <- grep("COUNTRY", header, ignore.case = TRUE, value = TRUE)
+  
+  if (length(linje) == 0) {
+    stop("No line containing 'COUNTRY' found.")
+  }
+  
+  # Extract the word after 'COUNTRY'
+  match <- sub(".*\\bCOUNTRY\\b\\s+", "", linje[1], ignore.case = TRUE)
+  
+  return(trimws(match))
+}
+```
+
+```{r}
+get_n_years <- function(header) {
+  # Find the line containing 'NUMBER OF YEARS'
+  linje <- grep("NUMBER OF YEARS", header, ignore.case = TRUE, value = TRUE)
+  
+  if (length(linje) == 0) {
+    stop("No line containing 'NUMBER OF YEARS' found.")
+  }
+  
+  # Extract the number after 'NUMBER OF YEARS'
+  value <- sub(".*\\bNUMBER OF YEARS\\b\\s+", "", linje[1], ignore.case = TRUE)
+  years <- as.numeric(value)
+  
+  if (is.na(years)) {
+    stop("Could not parse number of years.")
+  }
+  
+  return(years)
+}
+```
+
+```{r}
+get_is_Coastal <- function(header) {
+  # Find line containing 'GAUGE TYPE'
+  linje <- grep("GAUGE TYPE", header, ignore.case = TRUE, value = TRUE)
+  
+  if (length(linje) == 0) {
+    return(FALSE)
+  }
+  
+  # Check if 'Coastal' is in that line (case-insensitive)
+  return(grepl("\\bCoastal\\b", linje[1], ignore.case = TRUE))
+}
+```
+
+
+
+
+```{r doit, echo=TRUE, results='asis'}
+# Open log file connection
+log_file <- file("OUTPUT/ONTHEHOUR2/completeness_log.txt", open = "a")
+
+for (ifil in 1:nrow(filenames)) {
+  # Get the filename
+  name <- if (is.data.frame(filenames)) filenames[ifil, 1] else filenames[ifil]
+  station <- basename(name)
+  
+  # Read header and extract metadata
+  header <- get_header(name)
+  print(header)
+  longitude <- get_longitude(header)
+  latitude <- get_latitude(header)
+  country <- get_country(header)
+  n_years <- get_n_years(header)
+  is_Coastal <- get_is_Coastal(header)
+  
+  linje <- c(station, longitude, latitude, country, n_years, is_Coastal)
+  
+  if (is_Coastal & n_years >= minlength_yrs) {
+    
+    print(name)
+    df <- read.csv(name, skip = 41, sep = "")
+    colnames(df) <- c("date", "time", "obs", "qf1", "qf2")
+    
+    df$POSIX <- as.POSIXct(
+      paste(df$date, df$time),
+      format = "%Y/%m/%d %H:%M:%S",
+      tz = "UTC"
+    )
+    
+    idx <- which(df$qf2 == 1)
+    df <- df[idx, ]
+    
+    most_common_minute <- as.integer(names(which.max(table(minute(df$POSIX)))))
+    jdx <- which(minute(df$POSIX) == most_common_minute)
+    df <- df[jdx, ]
+    
+    df <- df[, !(names(df) %in% c("date", "time"))]
+    
+    completeness_pct <- (nrow(df)) / ((max(year(df$POSIX)) - min(year(df$POSIX))) * 365.25 * 24) * 100
+    
+    if (completeness_pct >= pct_complete_req) {
+      saveRDS(df, paste0('OUTPUT/ONTHEHOUR2/', station, '.rds'))
+    } else {
+      # Log failure
+      msg <- sprintf("Station %s failed completeness: %.2f%%\n", station, completeness_pct)
+      writeLines(msg, con = log_file)
+    }
+    cat("\014")  # Clear console
+  }
+}
+
+# Close log file connection
+close(log_file)
+
+```

@@ -1,0 +1,193 @@
+RUN_ORDER.txt  (ESBJERG2 / PUBLICATION)
+
+Purpose:
+Run the pipeline for the stationary vs non-stationary test
+using GESLA tide-gauge data.
+
+
+=======================================================================
+0) Go to the correct directory
+=======================================================================
+
+cd ~/WORKSHOP/esbjerg-storm-surge-extremes-publication
+
+Install R
+Install Rstudio
+To run the python codes consider using 'uv' from astral as it makes life easier, if so start with
+uv init
+
+All steps below assume you run from this directory.
+
+
+=======================================================================
+0) Download the GESLA data (GESLA3 or GESLA4)
+Download from the official GESLA downloads page:
+https://gesla787883612.wordpress.com/downloads/
+
+Note: This paper uses GESLA3 (not GESLA4).
+
+Unpack the archive to a local directory. Create a text file listing
+the full paths to all GESLA station files (one full file path per line,
+no header), and save it where the code can read it, e.g.:
+
+  DATA/GESLA_FILENAMES_HOME2.txt
+
+This file is read by "GESLA_data_checker_4.Rmd" (see the read.csv()
+line near the start of the script).  It is easy to mess up that file -
+for instance, the name of the zip file may end up in the name-file. Make
+sure ONLY gesla data files are named in the name-file.
+
+Note: R Libraries must be installed - in practise this is best done as
+the messages crop up, so keep running the steps below from Rstudio until
+no packages need installing.
+
+Note: if starting fresh, you have to create some directories:
+
+From ~/WORKSHOP/esbjerg-storm-surge-extremes-publication do this:
+
+mkdir OUTPUT
+mkdir OUTPUT/ONTHEHOUR2
+
+=======================================================================
+1) Select usable GESLA stations (on-the-hour only + minimum record length)
+=======================================================================
+
+Run:
+  GESLA_data_checker_4.Rmd
+
+(that is a slow step as all GESLA series are inspected for usefulness in the analysis after)
+
+User settings inside the Rmd:
+  minlength_yrs  (choose a value)
+
+e.g.:
+minlength_yrs <- 55  # year span required
+pct_complete_req <- 85 # percentage completeness required
+
+Output:
+  OUTPUT/ONTHEHOUR2/   (RDS files)
+
+IMPORTANT:
+  Units are metres (m), NOT cm.
+
+Optional (safe de-duplication):
+  ./safe_dedup.sh OUTPUT/ONTHEHOUR2/
+
+(it is based on checksums of file contents - files with same checksum
+are noted and the first is kept and the rest erased if you naswer 'y'
+to the script).
+
+=======================================================================
+1.9) Set up a utility file of metadata
+=======================================================================
+
+run station_info.Rmd
+
+It will write a file of lon/lat for all stations, "DATA/station_metadata.rds"
+
+=======================================================================
+2) Compute tide residuals + annual maxima + annual mean sea level (MSL)
+=======================================================================
+
+run:
+  ftide_residuals_5_SH_winteralso.Rmd
+
+(it is slow ...)
+
+Purpose:
+  Fits ftide() to each station series from Step 1 and outputs:
+  - annual maximum residual surge
+  - annual mean MSL
+  - it does so only for years with the required completeness (see settings in code)
+
+Output:
+  OUTPUT/ANNUALS2/   (RDS files)
+
+Optional (safe de-duplication):
+  ./safe_dedup.sh OUTPUT/ANNUALS2/
+
+=======================================================================
+2.99) Generate an(other) index-file describing each station 
+=======================================================================
+run GESLA_index_maker_2.Rmd
+
+Output:
+	DATA/gesla_station_index.csv
+=======================================================================
+3) Stationary vs non-stationary extreme-value test (with resampling)
+=======================================================================
+
+Run:
+  S_vs_NS_tester_9_resampling.Rmd
+
+or (faster)
+
+uv run S_vs_NS_tester_9_resampling.py from command line
+
+Purpose:
+  Reads all station files created in Step 2.
+  Uses file from 2.99
+  Performs stationary (S) and non-stationary (NS) tests on extremes.
+
+Output:
+  An output file, to be user-renamed:
+    RESULTS/collected_S_vs_NS_test_results_RENAME_or_LOOSE.txt
+    RESULTS/merged.csv
+
+NOTE:
+  This step can take a long time. Go for a walk. A long one.
+
+=======================================================================
+4) Summarise and inspect the collected S vs NS results
+=======================================================================
+
+Run:
+  consider_collected_S_vs_NS_results_4.Rmd
+
+Purpose:
+  Reads the Step 3 results file and summarises / filters / inspects it.
+
+Input:
+  Uses that renamed file from step 3).
+
+Output:
+  Summary tables and/or plots (see script output paths).
+
+=======================================================================
+5) (Optional) Make the publication table
+=======================================================================
+
+Run:
+  make_publication_table_4.Rmd
+
+Purpose:
+  Produces the final publication-ready table used in the manuscript / SI.
+
+Output:
+  Publication table files (see script output paths).
+
+=======================================================================
+6) Make the station location map(s) (Python)
+=======================================================================
+
+Run:
+  uv run make_map_lon_lat_tidegauge_stations_15_satellite_zoom.py
+
+( a bit sloow, just wait)
+
+Purpose:
+  Generates station maps for the paper.
+
+Note:
+  You will need the ETOPO grd file from online
+=======================================================================
+END: Minimal pipeline summary
+=======================================================================
+
+1) GESLA_data_checker_4.Rmd
+2) ftide_residuals_5_SH_winteralso.Rmd
+3) S_vs_NS_tester_7_resampling_MODIFIED.Rmd
+4) consider_collected_S_vs_NS_results_4.Rmd
+5) (OPTIONAL) make_publication_table_4.Rmd
+6) uv run make_map_lon_lat_tidegauge_stations_15_satellite_zoom.py
+
