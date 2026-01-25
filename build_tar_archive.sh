@@ -1,1 +1,0 @@
-tar -czvf esbjerg2_publication_code_only.tar.gz   --exclude='./.venv/'  --exclude='./OUTPUT' --exclude='./OUTPUT/**'   --exclude='./RESULTS' --exclude='./RESULTS/**'   --exclude='./FIGURES' --exclude='./FIGURES/**'   --exclude='*.rds'   --exclude='*.png'  --exclude='./OLD' --exclude='./CODEOCEAN' .
