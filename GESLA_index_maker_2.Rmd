@@ -9,7 +9,7 @@ output:
 rm(list = ls())
 
 data_dir <- "/home/pth/GESLA4/DATA/" # where the GESLA files are kept
-output_csv <- "gesla_station_index.csv"
+output_csv <- "DATA/gesla_station_index.csv"
 
 files <- list.files(data_dir, full.names = TRUE)
 station_seen <- list()
