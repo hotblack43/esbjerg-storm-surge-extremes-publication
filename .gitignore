@@ -5,7 +5,7 @@
 *.rds
 *.png
 *.csv
-*.nc
+*.nc 
 OLD/
 
 # big archives
