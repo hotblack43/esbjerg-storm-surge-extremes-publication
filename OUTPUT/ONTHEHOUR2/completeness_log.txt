@@ -1,182 +1,91 @@
-Station aberdeen-abe-gbr-bodc failed completeness: 56.43%
-
 Station acapulco-316-mex-unam_hist failed completeness: 74.58%
-
+Station aberdeen-abe-gbr-bodc failed completeness: 56.43%
 Station algeciras-alge-esp-ieo failed completeness: 79.30%
-
 Station alicante_i_outer_harbour-alio-esp-da_mm failed completeness: 45.49%
-
 Station arrecife-arre-esp-ieo failed completeness: 80.94%
-
 Station bella_bella_bc-8976-can-meds failed completeness: 52.52%
-
 Station brisbane_bar-59980-aus-bom failed completeness: 77.89%
-
 Station burnie-60910-aus-bom failed completeness: 71.64%
-
 Station calais-55-fra-refmar failed completeness: 55.66%
-
-Station calaistg_60minute-cal-fra-cmems failed completeness: 55.51%
-
 Station campbell_river_bc-8074-can-meds failed completeness: 81.89%
-
+Station calaistg_60minute-cal-fra-cmems failed completeness: 55.51%
 Station carnarvon-62370-aus-bom failed completeness: 84.43%
-
 Station charleston-8665530-usa-noaa failed completeness: 84.84%
-
 Station charlottetown-1700-can-meds failed completeness: 82.69%
-
 Station cherbourg-13-fra-refmar failed completeness: 61.86%
-
 Station cherbourgtg_60minute-che-fra-cmems failed completeness: 61.77%
-
 Station cruz-cruz-esp-ieo failed completeness: 73.73%
-
-Station delfzijl-delfzl-nld-rws_hist failed completeness: 42.10%
-
-Station dieppe-24-fra-refmar failed completeness: 74.93%
-
-Station dieppetg_60minute-die-fra-cmems failed completeness: 74.34%
-
-Station dover-dov-gbr-bodc failed completeness: 59.55%
-
+Station dieppe-24-fra-refmar failed completeness: 73.89%
+Station dieppetg_60minute-die-fra-cmems failed completeness: 73.31%
 Station dunkerque-2-fra-refmar failed completeness: 81.61%
-
 Station dunkerquetg_60minute-dun-fra-cmems failed completeness: 81.51%
-
+Station delfzijl-delfzl-nld-rws_hist failed completeness: 42.10%
+Station dover-dov-gbr-bodc failed completeness: 59.55%
 Station faraday-700-ata-uhslc_fd failed completeness: 78.82%
-
 Station fernandina_beach-240a-usa-uhslc_rq failed completeness: 49.45%
-
-Station halifax-275a-can-uhslc_rq failed completeness: 79.61%
-
-Station halifax-275-can-uhslc_fd failed completeness: 76.38%
-
 Station halifax-490-can-meds failed completeness: 79.69%
-
-Station heysham-hey-gbr-bodc failed completeness: 78.26%
-
+Station halifax-275a-can-uhslc_rq failed completeness: 79.61%
+Station halifax-275-can-uhslc_fd failed completeness: 76.38%
 Station hilo-1617760-usa-noaa failed completeness: 84.79%
-
 Station hilo_hawaii-060a-usa-uhslc_rq failed completeness: 84.93%
-
+Station heysham-hey-gbr-bodc failed completeness: 78.26%
 Station hobart-61220-aus-bom failed completeness: 83.11%
-
 Station ijmuiden_noordersluis-ijmdndss-nld-rws_hist failed completeness: 72.72%
-
 Station immingham-imm-gbr-bodc failed completeness: 79.58%
-
 Station ketchikan-9450460-usa-noaa failed completeness: 77.66%
-
 Station ketchikan_ak-571a-usa-uhslc_rq failed completeness: 77.65%
-
 Station ketchikan_ak-571-usa-uhslc_fd failed completeness: 78.01%
-
 Station le_havre-4-fra-refmar failed completeness: 63.59%
-
 Station lehavretg_60minute-leh-fra-cmems failed completeness: 63.51%
-
 Station lewes-8557380-usa-noaa failed completeness: 76.97%
-
 Station lewes_de-747a-usa-uhslc_rq failed completeness: 76.75%
-
 Station malaga-mala-esp-ieo failed completeness: 83.53%
-
 Station marseille-524-fra-refmar failed completeness: 31.73%
-
-Station marseille-824a-fra-uhslc_rq failed completeness: 61.16%
-
-Station marseille-824-fra-uhslc_fd failed completeness: 60.53%
-
 Station marseilletg_60minute-mar-fra-cmems failed completeness: 31.68%
-
+Station marseille-824a-fra-uhslc_rq failed completeness: 61.16%
+Station marseille-824-fra-uhslc_fd failed completeness: 60.53%
 Station milford_haven-mha-gbr-bodc failed completeness: 65.59%
-
 Station mokuoloe-061a-usa-uhslc_rq failed completeness: 84.69%
-
 Station mokuoloe-061-usa-uhslc_fd failed completeness: 84.83%
-
 Station nakatoshima-hd30-jpn-jodc_jcg failed completeness: 80.71%
-
 Station north_shields-nsh-gbr-bodc failed completeness: 63.57%
-
 Station point_atkinson_bc-7795-can-meds failed completeness: 75.58%
-
 Station pointe_au_pere-2980-can-meds failed completeness: 79.60%
-
 Station port_adelaide_inner_harbor-61610-aus-bom failed completeness: 67.64%
-
 Station port_aux_basques-665-can-meds failed completeness: 67.97%
-
 Station port_hedland-62590-aus-bom failed completeness: 84.65%
-
 Station port_pirie-61800-aus-bom failed completeness: 83.67%
-
+Station porttudytg_60minute-por-fra-cmems failed completeness: 83.83%
 Station port_tudy-71-fra-refmar failed completeness: 83.95%
-
-Station porttudytg_60minute-por-fra-cmems failed completeness: 83.82%
-
 Station prince_rupert-540a-can-uhslc_rq failed completeness: 80.36%
-
-Station prince_rupert-540-can-uhslc_fd failed completeness: 81.11%
-
 Station prince_rupert_bc-9354-can-meds failed completeness: 80.51%
-
-Station rockport-8774770-usa-noaa failed completeness: 77.89%
-
+Station prince_rupert-540-can-uhslc_fd failed completeness: 81.11%
 Station rockport_tx-769a-usa-uhslc_rq failed completeness: 77.66%
-
+Station rockport-8774770-usa-noaa failed completeness: 77.89%
 Station saint_gildas-36-fra-refmar failed completeness: 83.06%
-
 Station saintgildastg_60minute-sai-fra-cmems failed completeness: 83.06%
-
 Station saint_jean_de_luz_socoa-95-fra-refmar failed completeness: 59.22%
-
 Station saint_john-65-can-meds failed completeness: 78.23%
-
 Station saint_nazaire-37-fra-refmar failed completeness: 58.73%
-
 Station saintnazairetg_60minute-sai-fra-cmems failed completeness: 58.53%
-
 Station sandy_hook-8531680-usa-noaa failed completeness: 84.55%
-
-Station scheveningen-schevngn-nld-rws_hist failed completeness: 77.47%
-
 Station seavey_island-8419870-usa-noaa failed completeness: 59.23%
-
+Station scheveningen-schevngn-nld-rws_hist failed completeness: 77.47%
 Station simons_town-221-zaf-uhslc_fd failed completeness: 77.33%
-
 Station socoatg_60minute-soc-fra-cmems failed completeness: 57.77%
-
 Station st_johns-905-can-meds failed completeness: 75.40%
-
 Station st_petersburg-8726520-usa-noaa failed completeness: 77.13%
-
 Station tenerife-ten-esp-da_mm failed completeness: 83.29%
-
 Station terneuzen-ternzn-nld-rws failed completeness: 26.12%
-
 Station tofino-542a-can-uhslc_rq failed completeness: 75.63%
-
 Station tofino-542-can-uhslc_fd failed completeness: 76.67%
-
 Station tofino_bc-8615-can-meds failed completeness: 76.10%
-
 Station vancouver_bc-7735-can-meds failed completeness: 83.09%
-
 Station vardo-805a-nor-uhslc_rq failed completeness: 68.49%
-
 Station vardo-805-nor-uhslc_fd failed completeness: 70.67%
-
-Station vardoetg-var-nor-cmems failed completeness: 70.18%
-
 Station vardo-vaw-nor-nhs failed completeness: 69.03%
-
 Station victoria_harbour_bc-7120-can-meds failed completeness: 57.55%
-
+Station vardoetg-var-nor-cmems failed completeness: 70.19%
 Station vlissingen-vlissgn-nld-rws_hist failed completeness: 43.07%
-
 Station west_terschelling-westtslg-nld-rws failed completeness: 26.82%
-
 Station yarmouth-365-can-meds failed completeness: 44.91%
-

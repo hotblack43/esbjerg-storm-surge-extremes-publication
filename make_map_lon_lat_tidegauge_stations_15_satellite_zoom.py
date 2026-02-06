@@ -93,6 +93,14 @@ plot_map(yellow_df, red_df, etopo, filename="map_global.png")
 plot_map(yellow_df, red_df, etopo, lon_min=-130, lon_max=-60, lat_min=20, lat_max=55, filename="map_usa_satellite.png", satellite_view=True)
 plot_map(yellow_df, red_df, etopo, lon_min=-10, lon_max=30, lat_min=35, lat_max=70, filename="map_europe_satellite.png", satellite_view=True)
 plot_map(yellow_df, red_df, etopo, lon_min=-10, lon_max=30, lat_min=35, lat_max=70, filename="map_europe2_satellite.png", satellite_view=True , dot_size_red=20, dot_size_yellow=15)
-plot_map(yellow_df, red_df, etopo, lon_min=125, lon_max=150, lat_min=30, lat_max=50, filename="map_japan_satellite.png", satellite_view=True)
+plot_map(yellow_df, red_df, etopo, 
+         lon_min=-13, lon_max=45, lat_min=34, lat_max=72,
+         filename="map_europe_closeup.png",
+         satellite_view=False)
+plot_map(yellow_df, red_df, etopo, lon_min=139, lon_max=160, lat_min=32, lat_max=48, filename="map_japan_satellite.png", satellite_view=True)
+plot_map(yellow_df, red_df, etopo,
+         lon_min=128, lon_max=147, lat_min=29, lat_max=46,
+         filename="map_japan_closeup.png",
+         satellite_view=False)
 plot_map(yellow_df, red_df, etopo, lon_min=105, lon_max=170, lat_min=-50, lat_max=-10, filename="map_australia_satellite.png", satellite_view=True)
 

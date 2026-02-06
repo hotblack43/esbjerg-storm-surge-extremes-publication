@@ -19,7 +19,7 @@ import statsmodels.api as sm
 # -----------------------------
 # Config (mirrors your R script)
 # -----------------------------
-BASE_DIR = Path.home() / "WORKSHOP" / "esbjerg-storm-surge-extremes-publication"
+BASE_DIR = Path.home() / "./NEW"
 INPUT_DIR = BASE_DIR / "OUTPUT" / "ANNUALS2"
 FIG_DIR = BASE_DIR / "FIGURES"
 RES_DIR = BASE_DIR / "RESULTS"
@@ -29,8 +29,8 @@ MIDDLE_DIR = FIG_DIR / "JUSTTHEMIDDLE3panelONE"
 
 SUMMARY_FILE = RES_DIR / "collected_S_vs_NS_test_results_RENAME_or_LOOSE.txt"
 
-N_BOOT = 333
-RANDOM_SEED = 1234
+N_BOOT = 1333
+RANDOM_SEED = 134
 
 
 # -----------------------------

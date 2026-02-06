@@ -9,7 +9,7 @@ output:
 
 ```{r}
 rm(list=ls())
-setwd("~/WORKSHOP/esbjerg-storm-surge-extremes-publication")
+setwd("./")
 df <- read.csv("RESULTS/merged.csv", header=T, sep=",")
 
 ```
@@ -29,12 +29,14 @@ if (if_cleanup){
   #df <- df[!grepl("brest_60", df[[1]]), ]
   #df <- df[!grepl("brest_annual", df[[1]]), ]
   #df <- df[!grepl("ceuta_v1", df[[1]]), ]
+  df <- df[!grepl("cristobal", df[[1]]), ] # offset after 2000
   df <- df[!grepl("churchill", df[[1]]), ] # due to the ice
   #df <- df[!grepl("crescent_city_ca", df[[1]]), ]
   #df <- df[!grepl("eastport_me", df[[1]]), ]
   #df <- df[!grepl("fort_pulaski_ga", df[[1]]), ]
   #df <- df[!grepl("frontenac", df[[1]]), ]
   #df <- df[!grepl("furuogrund", df[[1]]), ]
+  df <- df[!grepl("fernandina_beach-872", df[[1]]), ] # chnage in slode atgap by 1930
   df <- df[!grepl("furuogrund-2055", df[[1]]), ]
   #df <- df[!grepl("galveston_pier_21_annual", df[[1]]), ]
   #df <- df[!grepl("gedser_annual", df[[1]]), ]
@@ -42,6 +44,7 @@ if (if_cleanup){
   df <- df[!grepl("hanasaki", df[[1]]), ]
   #df <- df[!grepl("honolulu_annual", df[[1]]), ]
   df <- df[!grepl("hornbaek", df[[1]]), ]
+  df <- df[!grepl("hiroshima", df[[1]]), ] # jump at 1958ish
   df <- df[!grepl("izuhara", df[[1]]), ]
   #df <- df[!grepl("heesbeen_annual", df[[1]]), ]
   #df <- df[!grepl("kahului_v1", df[[1]]), ]
@@ -56,23 +59,27 @@ if (if_cleanup){
   df <- df[!grepl("kobe", df[[1]]), ]
   df <- df[!grepl("kozushima", df[[1]]), ]
   #df <- df[!grepl("la_jolla_ca", df[[1]]), ]
-  #df <- df[!grepl("la_libertad", df[[1]]), ]
+  df <- df[!grepl("la_libertad", df[[1]]), ] # odd gradual msl slope in 1980s
   df <- df[!grepl("landsort", df[[1]]), ] # are there two different ones in GESLA3?
   #df <- df[!grepl("los_angeles_ca", df[[1]]), ]
   #df <- df[!grepl("magueyes_island_pr", df[[1]]), ]
   df <- df[!grepl("maisaka", df[[1]]), ]
+  df <- df[!grepl("miyakejima", df[[1]]), ]
+  df <- df[!grepl("miyako", df[[1]]), ]
   #df <- df[!grepl("marviken_v1", df[[1]]), ]
   #df <- df[!grepl("mayport_ferry", df[[1]]), ]
   #df <- df[!grepl("montauk_ny", df[[1]]), ]
   #df <- df[!grepl("montreal", df[[1]]), ]
   #df <- df[!grepl("nawiliwili_v2", df[[1]]), ]
-  df <- df[!grepl("naze", df[[1]]), ]
+  df <- df[!grepl("naze", df[[1]]), ] # few first years MSL is off, coul dbe fixed
   #df <- df[!grepl("neah_bay_wa", df[[1]]), ]
   #df <- df[!grepl("new_london_ct", df[[1]]), ]
   #df <- df[!grepl("newport_ri", df[[1]]), ]
   df <- df[!grepl("ontario", df[[1]]), ]
+  df <- df[!grepl("ofunato", df[[1]]), ]
   df <- df[!grepl("ominato", df[[1]]), ]
   df <- df[!grepl("onahama", df[[1]]), ]
+  df <- df[!grepl("oita", df[[1]]), ]
   #df <- df[!grepl("oskarshamn_v3", df[[1]]), ]
   #df <- df[!grepl("pensacola_fl", df[[1]]), ]
   #df <- df[!grepl("port_isabel_tx", df[[1]]), ]
@@ -94,10 +101,12 @@ if (if_cleanup){
   #df <- df[!grepl("southampton", df[[1]]), ]
   #df <- df[!grepl("tregde_annual", df[[1]]), ]
   df <- df[!grepl("tokyo", df[[1]]), ]
+  df <- df[!grepl("tomakomainishiko", df[[1]]), ] # sudden drop near 212, can be fixed
   #df <- df[!grepl("varberg_annual", df[[1]]), ]
   #df <- df[!grepl("wake_annual", df[[1]]), ]
   #df <- df[!grepl("wilmington_nc", df[[1]]), ]
   df <- df[!grepl("yakutat-9", df[[1]]), ]
+  df <- df[!grepl("ayukawa-ma11-jpn", df[[1]]), ]
 }
 ```
 

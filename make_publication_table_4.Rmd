@@ -10,16 +10,11 @@ v4 extracts its own lon/lats country and does so just for files that are big eno
 ```{r}
 rm(list=ls())
 library(xtable)
-setwd("~/WORKSHOP/esbjerg-storm-surge-extremes-publication")
+setwd("./")
 df <- readRDS("OUTPUT/the_best.rds")
 df2 <- df
 #
 ```
-
-
-
-
-
 
 # Round columns
 ```{r}
@@ -41,6 +36,12 @@ new_order <- append(
   after = match("country", cols)
 )
 df <- df[, new_order]
+#
+# after your join/merge step
+if ("filename_x" %in% names(df) && !"filename" %in% names(df)) {
+  names(df)[names(df) == "filename_x"] <- "filename"
+}
+
 # generate suitable station names
 df$station_short <- tools::toTitleCase(gsub("_", " ", sub("-.*", "", sub("_annual$", "", df$filename))))
 
@@ -100,6 +101,9 @@ for (i in 1:nrow(df))
 ```
 
 
+```{r}
+print("Generated outputs in FIGURES/THEBEST and OUTPUT/")
+```
 
 
 

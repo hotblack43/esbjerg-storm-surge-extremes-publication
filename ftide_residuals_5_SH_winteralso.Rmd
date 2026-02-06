@@ -10,13 +10,13 @@ output:
 
 # This version defines the 'storm year' by using the station (North/South) latitude.
 
-# first was run GESLA_data_checker_x.Rmd
-# This is #2
+# first step was to run GESLA_data_checker_x.Rmd (or the python version)
+# This is step #2
 
 
 ```{r, message=FALSE}
 rm(list=ls())
-setwd("~/WORKSHOP/esbjerg-storm-surge-extremes-publication") 
+setwd("./") 
 library(TideHarmonics)
 library(dplyr)
 library(lubridate)
