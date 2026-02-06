@@ -18,7 +18,7 @@ import statsmodels.api as sm
 # Config (mirrors your R script)
 # -----------------------------
 # BASE_DIR = Path.home() / "./NEW"
-BASE_DIR = Path.home() / "~/WORKSHOP/esbjerg-storm-surge-extremes-publication"
+BASE_DIR = Path.home() / "./WORKSHOP/esbjerg-storm-surge-extremes-publication"
 INPUT_DIR = BASE_DIR / "OUTPUT" / "ANNUALS2"
 FIG_DIR = BASE_DIR / "FIGURES"
 RES_DIR = BASE_DIR / "RESULTS"
