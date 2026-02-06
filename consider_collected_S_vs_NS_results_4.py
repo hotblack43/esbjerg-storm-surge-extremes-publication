@@ -72,36 +72,36 @@ def main() -> int:
     if_cleanup = True
     if if_cleanup:
         active_patterns = [
-#           "aomorika",
-#           "cristobal",                 # offset after 2000
-            "churchill",                 # due to the ice
-            "fernandina_beach-240a-usa-uhslc_rq",      # least data of two
-#           "furuogrund-2055",
-#           "harlingen",
-#           "hanasaki",
-#           "hornbaek",
-#           "hiroshima",                 # jump at 1958ish
-#           "izuhara",
-#           "kamaishi",
-#           "kungsholmsfort-kun",        # form of duplicate
-#           "kobe",
-#           "kozushima",
-#           "la_libertad",               # odd gradual msl slope in 1980s
-            "landsort1-lan",             # omitting the detrended version
-#           "maisaka",
-#           "miyakejima",
-#           "miyako",
-#           "naze",                      # few first years MSL is off, could be fixed
-#           "ontario",
-#           "ofunato",
-#           "ominato",
-#           "onahama",
-#           "oita",
-#           "sitka_ak",
-#           "tokyo",
-#           "tomakomainishiko",          # sudden drop near 212, can be fixed
-#           "yakutat-9",
-#           "ayukawa-ma11-jpn",
+            #           "aomorika",
+            #           "cristobal",                 # offset after 2000
+            "churchill",  # due to the ice
+            "fernandina_beach-240a-usa-uhslc_rq",  # least data of two
+            #           "furuogrund-2055",
+            #           "harlingen",
+            #           "hanasaki",
+            #           "hornbaek",
+            #           "hiroshima",                 # jump at 1958ish
+            #           "izuhara",
+            #           "kamaishi",
+            #           "kungsholmsfort-kun",        # form of duplicate
+            #           "kobe",
+            #           "kozushima",
+            #           "la_libertad",               # odd gradual msl slope in 1980s
+            "landsort1-lan",  # omitting the detrended version
+            #           "maisaka",
+            #           "miyakejima",
+            #           "miyako",
+            #           "naze",                      # few first years MSL is off, could be fixed
+            #           "ontario",
+            #           "ofunato",
+            #           "ominato",
+            #           "onahama",
+            #           "oita",
+            #           "sitka_ak",
+            #           "tokyo",
+            #           "tomakomainishiko",          # sudden drop near 212, can be fixed
+            #           "yakutat-9",
+            #           "ayukawa-ma11-jpn",
         ]
 
         for pat in active_patterns:
@@ -144,7 +144,9 @@ def main() -> int:
     # idx <- which(delta_AIC > 0 & delta_BIC > 0 & LRT_p < 0.05)
     # best <- goodies[idx,]
     best = goodies.loc[
-        (goodies["delta_AIC"] > 0) & (goodies["delta_BIC"] > 0) & (goodies["LRT_p"] < 0.05)
+        (goodies["delta_AIC"] > 0)
+        & (goodies["delta_BIC"] > 0)
+        & (goodies["LRT_p"] < 0.05)
     ].copy()
 
     # -----------------------------
@@ -239,7 +241,9 @@ def main() -> int:
     # Recompute "best" exactly like the last R chunk (same condition, repeated)
     # -----------------------------
     best2 = goodies.loc[
-        (goodies["LRT_p"] < 0.05) & (goodies["delta_BIC"] > 0) & (goodies["delta_AIC"] > 0)
+        (goodies["LRT_p"] < 0.05)
+        & (goodies["delta_BIC"] > 0)
+        & (goodies["delta_AIC"] > 0)
     ].copy()
 
     # -----------------------------
@@ -271,11 +275,12 @@ def main() -> int:
     if wrote_best_rds and wrote_goodies_rds:
         print("Wrote RDS outputs via pyreadr.")
     else:
-        print("pyreadr not available (or failed). Wrote .pkl fallback(s) instead of .rds.")
+        print(
+            "pyreadr not available (or failed). Wrote .pkl fallback(s) instead of .rds."
+        )
 
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

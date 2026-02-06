@@ -11,7 +11,7 @@ import pandas as pd
 # ----------------------------
 # User settings (edit these)
 # ----------------------------
-DATA_DIR = Path("/home/pth/GESLA4/DATA/")   # where the GESLA files are kept
+DATA_DIR = Path("/home/pth/GESLA4/DATA/")  # where the GESLA files are kept
 OUTPUT_CSV = Path("DATA/gesla_station_index.csv")
 
 HEADER_LINES = 41
@@ -174,4 +174,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

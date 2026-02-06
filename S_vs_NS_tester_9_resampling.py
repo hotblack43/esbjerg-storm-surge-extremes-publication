@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-import math
 import warnings
 from pathlib import Path
 
@@ -19,7 +17,7 @@ import statsmodels.api as sm
 # -----------------------------
 # Config (mirrors your R script)
 # -----------------------------
-#BASE_DIR = Path.home() / "./NEW"
+# BASE_DIR = Path.home() / "./NEW"
 BASE_DIR = Path.home() / "~/WORKSHOP/esbjerg-storm-surge-extremes-publication"
 INPUT_DIR = BASE_DIR / "OUTPUT" / "ANNUALS2"
 FIG_DIR = BASE_DIR / "FIGURES"
@@ -117,9 +115,9 @@ def fit_stationary_gev(y):
 
     # bounds: log_sigma free; xi bounded moderately to avoid runaway
     bounds = [
-        (None, None),        # mu
-        (None, None),        # log_sigma
-        (-1.0, 1.0),         # xi
+        (None, None),  # mu
+        (None, None),  # log_sigma
+        (-1.0, 1.0),  # xi
     ]
 
     res = minimize(
@@ -170,10 +168,10 @@ def fit_nonstationary_gev(y, x):
     x0 = np.array([beta0_init, beta1_init, np.log(sigma0), xi0], dtype=float)
 
     bounds = [
-        (None, None),        # beta0
-        (None, None),        # beta1
-        (None, None),        # log_sigma
-        (-1.0, 1.0),         # xi
+        (None, None),  # beta0
+        (None, None),  # beta1
+        (None, None),  # log_sigma
+        (-1.0, 1.0),  # xi
     ]
 
     res = minimize(
@@ -266,7 +264,7 @@ def contiguous_year_lines(ax, years, vals):
         while j + 1 < n and (years[j + 1] - years[j]) == 1:
             j += 1
         if j - i + 1 >= 2:
-            ax.plot(years[i:j + 1], vals[i:j + 1])
+            ax.plot(years[i : j + 1], vals[i : j + 1])
         i = j + 1
 
 
@@ -290,7 +288,12 @@ def plot_3panel_summary(df, covariate, residuals, beta1_samples, outname, name_c
     xgrid = np.linspace(np.nanmin(years), np.nanmax(years), 100)
     Xg = sm.add_constant(xgrid)
     pred = ols.get_prediction(Xg).summary_frame(alpha=0.05)
-    ax1.fill_between(xgrid, pred["mean_ci_lower"].to_numpy(), pred["mean_ci_upper"].to_numpy(), alpha=0.2)
+    ax1.fill_between(
+        xgrid,
+        pred["mean_ci_lower"].to_numpy(),
+        pred["mean_ci_upper"].to_numpy(),
+        alpha=0.2,
+    )
     ax1.plot(xgrid, pred["mean"].to_numpy(), linewidth=2)
 
     ax1.set_xlabel("Year")
@@ -310,7 +313,12 @@ def plot_3panel_summary(df, covariate, residuals, beta1_samples, outname, name_c
     X2g = sm.add_constant(x2grid)
     pred2 = ols2.get_prediction(X2g).summary_frame(alpha=0.05)
 
-    ax2.fill_between(x2grid, pred2["mean_ci_lower"].to_numpy(), pred2["mean_ci_upper"].to_numpy(), alpha=0.2)
+    ax2.fill_between(
+        x2grid,
+        pred2["mean_ci_lower"].to_numpy(),
+        pred2["mean_ci_upper"].to_numpy(),
+        alpha=0.2,
+    )
     ax2.plot(x2grid, pred2["mean"].to_numpy(), linewidth=2)
 
     ax2.set_title(name_clean)
@@ -364,7 +372,12 @@ def save_middle_panel(covariate, residuals, outname, name_clean):
     Xg = sm.add_constant(xgrid)
     pred = ols.get_prediction(Xg).summary_frame(alpha=0.05)
 
-    ax.fill_between(xgrid, pred["mean_ci_lower"].to_numpy(), pred["mean_ci_upper"].to_numpy(), alpha=0.2)
+    ax.fill_between(
+        xgrid,
+        pred["mean_ci_lower"].to_numpy(),
+        pred["mean_ci_upper"].to_numpy(),
+        alpha=0.2,
+    )
     ax.plot(xgrid, pred["mean"].to_numpy(), linewidth=2)
 
     ax.set_title(name_clean)
@@ -396,7 +409,9 @@ def merge_metadata_files(file1, file2, output_file):
             + ", ".join(unmatched)
         )
 
-    merged = df1.merge(df2, how="left", left_on="match_name", right_on="filename", sort=False)
+    merged = df1.merge(
+        df2, how="left", left_on="match_name", right_on="filename", sort=False
+    )
 
     # mirror your R: drop match_name and station_name
     if "match_name" in merged.columns:
@@ -440,7 +455,9 @@ def main():
                 print(f"Skipping {filepath} - incorrect format")
                 continue
 
-            df = df.dropna(subset=["storm_year", "max_residual", "mean_sea_level"]).copy()
+            df = df.dropna(
+                subset=["storm_year", "max_residual", "mean_sea_level"]
+            ).copy()
 
             residuals = df["max_residual"].to_numpy(dtype=float)
             covariate_raw = df["mean_sea_level"].to_numpy(dtype=float)
@@ -499,7 +516,9 @@ def main():
 
             # plots
             try:
-                plot_3panel_summary(df, covariate, residuals, beta1_samples, outname, name_clean)
+                plot_3panel_summary(
+                    df, covariate, residuals, beta1_samples, outname, name_clean
+                )
             except Exception as e:
                 print(f"(plot_3panel_summary failed for {outname}): {e}")
 
@@ -526,4 +545,3 @@ if __name__ == "__main__":
     # keep output quieter like your tryCatch approach
     warnings.filterwarnings("ignore")
     main()
-

@@ -83,7 +83,7 @@ def parse_header_kv(lines: List[str]) -> Dict[str, str]:
         matched = False
         for k in known_keys:
             if s.upper().startswith(k):
-                val = s[len(k):].strip()
+                val = s[len(k) :].strip()
                 kv[k] = val
                 matched = True
                 break
@@ -248,7 +248,15 @@ def main() -> None:
     write_list(out_not, not_coastal)
 
     # CSV summary
-    fieldnames = ["input_path", "exists", "gauge_type", "is_coastal", "number_of_years", "station_name", "error"]
+    fieldnames = [
+        "input_path",
+        "exists",
+        "gauge_type",
+        "is_coastal",
+        "number_of_years",
+        "station_name",
+        "error",
+    ]
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
@@ -266,4 +274,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

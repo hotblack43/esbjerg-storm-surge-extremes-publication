@@ -45,8 +45,8 @@ import pandas as pd
 # ----------------------------
 # Configuration (same as R)
 # ----------------------------
-MINLENGTH_YRS = 55         # year span required
-PCT_COMPLETE_REQ = 85      # percentage completeness required
+MINLENGTH_YRS = 55  # year span required
+PCT_COMPLETE_REQ = 85  # percentage completeness required
 
 WORKDIR = Path("./").expanduser()
 FILENAMES_CSV = WORKDIR / "DATA/GESLA_FILENAMES_HOME2.txt"
@@ -106,7 +106,9 @@ def get_country(header: list[str]) -> str:
 
 def get_n_years(header: list[str]) -> float:
     line = _find_line(header, "NUMBER OF YEARS")
-    m = re.search(r"\bNUMBER OF YEARS\b\s+([0-9]+(?:\.[0-9]+)?)", line, flags=re.IGNORECASE)
+    m = re.search(
+        r"\bNUMBER OF YEARS\b\s+([0-9]+(?:\.[0-9]+)?)", line, flags=re.IGNORECASE
+    )
     if not m:
         raise ValueError(f"Could not parse number of years from line: {line}")
     return float(m.group(1))
@@ -133,7 +135,7 @@ def load_filenames(path: Path) -> list[str]:
         if df.shape[1] >= 1:
             col0_name = str(df.columns[0])
             vals = df.iloc[:, 0].astype(str).tolist()
-            if ("/" in col0_name or col0_name.startswith("~")):
+            if "/" in col0_name or col0_name.startswith("~"):
                 df2 = pd.read_csv(path, header=None, dtype=str)
                 return df2.iloc[:, 0].astype(str).tolist()
             return vals
@@ -220,7 +222,7 @@ def process_one_station(path_str: str) -> tuple[str, str | None]:
             sep=r"\s+",
             engine="python",
             usecols=[0, 1, 4],
-            names=["date", "time", "qf2"]
+            names=["date", "time", "qf2"],
         )
     except Exception as e:
         return station, f"Station {station} failed read_csv (small): {e}\n"
@@ -228,7 +230,10 @@ def process_one_station(path_str: str) -> tuple[str, str | None]:
     df_small["qf2"] = pd.to_numeric(df_small["qf2"], errors="coerce")
     df_small = df_small.loc[df_small["qf2"] == 1].copy()
     if df_small.empty:
-        return station, f"Station {station} failed completeness: 0.00% (no rows after qf2==1)\n"
+        return (
+            station,
+            f"Station {station} failed completeness: 0.00% (no rows after qf2==1)\n",
+        )
 
     time_str = df_small["time"].astype(str)
     date_str = df_small["date"].astype(str)
@@ -237,7 +242,10 @@ def process_one_station(path_str: str) -> tuple[str, str | None]:
     df_small["minute"] = minute
     df_small = df_small.loc[df_small["minute"].notna()].copy()
     if df_small.empty:
-        return station, f"Station {station} failed completeness: 0.00% (no valid minutes)\n"
+        return (
+            station,
+            f"Station {station} failed completeness: 0.00% (no valid minutes)\n",
+        )
 
     most_common_minute = int(df_small["minute"].value_counts().idxmax())
     df_small = df_small.loc[df_small["minute"] == most_common_minute].copy()
@@ -246,7 +254,10 @@ def process_one_station(path_str: str) -> tuple[str, str | None]:
     df_small["year"] = year
     df_small = df_small.loc[df_small["year"].notna()].copy()
     if df_small.empty:
-        return station, f"Station {station} failed completeness: 0.00% (no valid years)\n"
+        return (
+            station,
+            f"Station {station} failed completeness: 0.00% (no valid years)\n",
+        )
 
     min_year = int(df_small["year"].min())
     max_year = int(df_small["year"].max())
@@ -255,22 +266,24 @@ def process_one_station(path_str: str) -> tuple[str, str | None]:
     completeness_pct = 0.0 if denom <= 0 else (len(df_small) / denom) * 100.0
 
     if completeness_pct < PCT_COMPLETE_REQ:
-        return station, f"Station {station} failed completeness: {completeness_pct:.2f}%\n"
+        return (
+            station,
+            f"Station {station} failed completeness: {completeness_pct:.2f}%\n",
+        )
 
     # PASS B: full read
     try:
         df = pd.read_csv(
-            filepath,
-            skiprows=HEADER_NLINES,
-            header=None,
-            sep=r"\s+",
-            engine="python"
+            filepath, skiprows=HEADER_NLINES, header=None, sep=r"\s+", engine="python"
         )
     except Exception as e:
         return station, f"Station {station} failed read_csv (full): {e}\n"
 
     if df.shape[1] < 5:
-        return station, f"Station {station} failed read (expected >=5 cols, got {df.shape[1]}).\n"
+        return (
+            station,
+            f"Station {station} failed read (expected >=5 cols, got {df.shape[1]}).\n",
+        )
 
     df = df.iloc[:, 0:5].copy()
     df.columns = ["date", "time", "obs", "qf1", "qf2"]
@@ -278,23 +291,32 @@ def process_one_station(path_str: str) -> tuple[str, str | None]:
     df["qf2"] = pd.to_numeric(df["qf2"], errors="coerce")
     df = df.loc[df["qf2"] == 1].copy()
     if df.empty:
-        return station, f"Station {station} failed completeness: 0.00% (no rows after qf2==1 in full read)\n"
+        return (
+            station,
+            f"Station {station} failed completeness: 0.00% (no rows after qf2==1 in full read)\n",
+        )
 
     minute_full = pd.to_numeric(df["time"].astype(str).str.slice(3, 5), errors="coerce")
     df = df.loc[minute_full == most_common_minute].copy()
     if df.empty:
-        return station, f"Station {station} failed completeness: 0.00% (no rows at mode minute in full read)\n"
+        return (
+            station,
+            f"Station {station} failed completeness: 0.00% (no rows at mode minute in full read)\n",
+        )
 
     dt = pd.to_datetime(
         df["date"].astype(str) + " " + df["time"].astype(str),
         format="%Y/%m/%d %H:%M:%S",
         errors="coerce",
-        utc=True
+        utc=True,
     )
     df["POSIX"] = dt
     df = df.loc[df["POSIX"].notna()].copy()
     if df.empty:
-        return station, f"Station {station} failed completeness: 0.00% (no valid POSIX after parsing)\n"
+        return (
+            station,
+            f"Station {station} failed completeness: 0.00% (no valid POSIX after parsing)\n",
+        )
 
     df = df.drop(columns=["date", "time"])
 
@@ -311,8 +333,12 @@ def process_one_station(path_str: str) -> tuple[str, str | None]:
 # Main
 # ----------------------------
 def main() -> None:
-    parser = argparse.ArgumentParser(description="GESLA data checker (fast) writing .rds via Rscript")
-    parser.add_argument("--jobs", type=int, default=1, help="Number of worker processes (default 1)")
+    parser = argparse.ArgumentParser(
+        description="GESLA data checker (fast) writing .rds via Rscript"
+    )
+    parser.add_argument(
+        "--jobs", type=int, default=1, help="Number of worker processes (default 1)"
+    )
     parser.add_argument("--quiet", action="store_true", help="Less console output")
     args = parser.parse_args()
 

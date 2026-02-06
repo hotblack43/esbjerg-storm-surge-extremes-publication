@@ -72,7 +72,11 @@ def df_to_longtable(
             if col in digits_by_col:
                 v_str = format_value(v, digits_by_col[col])
             else:
-                v_str = "" if (v is None or (isinstance(v, float) and np.isnan(v))) else str(v)
+                v_str = (
+                    ""
+                    if (v is None or (isinstance(v, float) and np.isnan(v)))
+                    else str(v)
+                )
             row_cells.append(latex_escape(v_str))
         rows.append(row_cells)
 
@@ -106,7 +110,11 @@ def df_to_longtable(
     lines.append(r"\endhead")
 
     lines.append(r"\midrule")
-    lines.append(r"\multicolumn{" + str(len(df.columns)) + r"}{r}{\emph{Continued on next page}} \\")
+    lines.append(
+        r"\multicolumn{"
+        + str(len(df.columns))
+        + r"}{r}{\emph{Continued on next page}} \\"
+    )
     lines.append(r"\endfoot")
 
     lines.append(r"\bottomrule")
@@ -199,7 +207,11 @@ def main():
     if "country" in cols and "longitude" in cols and "latitude" in cols:
         cols_wo_ll = [c for c in cols if c not in ["longitude", "latitude"]]
         insert_after = cols_wo_ll.index("country") + 1
-        new_order = cols_wo_ll[:insert_after] + ["longitude", "latitude"] + cols_wo_ll[insert_after:]
+        new_order = (
+            cols_wo_ll[:insert_after]
+            + ["longitude", "latitude"]
+            + cols_wo_ll[insert_after:]
+        )
         df = df.loc[:, new_order]
 
     # ---- Robust station identifier selection ----
@@ -238,8 +250,27 @@ def main():
     print(f"Station column source used: {station_source}")
 
     # Column selections: EXACTLY as your earlier Python/R intent
-    small_cols = ["station_short", "country", "longitude", "latitude", "n_years", "LRT_p", "beta1", "delta_AIC"]
-    large_cols = ["station_short", "country", "longitude", "latitude", "n_years", "LRT_p", "beta1", "delta_AIC", "delta_BIC"]
+    small_cols = [
+        "station_short",
+        "country",
+        "longitude",
+        "latitude",
+        "n_years",
+        "LRT_p",
+        "beta1",
+        "delta_AIC",
+    ]
+    large_cols = [
+        "station_short",
+        "country",
+        "longitude",
+        "latitude",
+        "n_years",
+        "LRT_p",
+        "beta1",
+        "delta_AIC",
+        "delta_BIC",
+    ]
 
     for c in small_cols:
         if c not in df.columns:
@@ -273,8 +304,12 @@ def main():
         "delta_AIC": 1,
     }
 
-    lt_small = df_to_longtable(df_small, digits_small, caption=None, label=None, align="llrrrrrr")
-    lt_large = df_to_longtable(df_large, digits_large, caption=None, label=None, align="llrrrrrrr")
+    lt_small = df_to_longtable(
+        df_small, digits_small, caption=None, label=None, align="llrrrrrr"
+    )
+    lt_large = df_to_longtable(
+        df_large, digits_large, caption=None, label=None, align="llrrrrrrr"
+    )
 
     out_dir = base / "OUTPUT"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -283,31 +318,35 @@ def main():
     out_side = out_dir / "sideways_table.tex"
 
     out_reg.write_text(
-        "\n".join([
-            r"\documentclass{article}",
-            r"\usepackage{longtable}",
-            r"\usepackage{booktabs}",
-            r"\begin{document}",
-            lt_small.rstrip(),
-            r"\end{document}",
-            "",
-        ]),
+        "\n".join(
+            [
+                r"\documentclass{article}",
+                r"\usepackage{longtable}",
+                r"\usepackage{booktabs}",
+                r"\begin{document}",
+                lt_small.rstrip(),
+                r"\end{document}",
+                "",
+            ]
+        ),
         encoding="utf-8",
     )
 
     out_side.write_text(
-        "\n".join([
-            r"\documentclass{article}",
-            r"\usepackage{pdflscape}",
-            r"\usepackage{longtable}",
-            r"\usepackage{booktabs}",
-            r"\begin{document}",
-            r"\begin{landscape}",
-            lt_large.rstrip(),
-            r"\end{landscape}",
-            r"\end{document}",
-            "",
-        ]),
+        "\n".join(
+            [
+                r"\documentclass{article}",
+                r"\usepackage{pdflscape}",
+                r"\usepackage{longtable}",
+                r"\usepackage{booktabs}",
+                r"\begin{document}",
+                r"\begin{landscape}",
+                lt_large.rstrip(),
+                r"\end{landscape}",
+                r"\end{document}",
+                "",
+            ]
+        ),
         encoding="utf-8",
     )
 
@@ -328,7 +367,11 @@ def main():
     missing = 0
 
     # Use whichever filename column actually exists (for figure names)
-    fig_name_col = "filename" if "filename" in df.columns else ("filename_x" if "filename_x" in df.columns else None)
+    fig_name_col = (
+        "filename"
+        if "filename" in df.columns
+        else ("filename_x" if "filename_x" in df.columns else None)
+    )
     if fig_name_col is not None:
         for fn in df[fig_name_col].map(_as_clean_text).tolist():
             if fn == "":
@@ -348,4 +391,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -27,7 +27,7 @@ import pandas as pd
 
 WORKDIR = Path("./").expanduser()
 DATA_DIR = Path("~/GESLA4/DATA/").expanduser()  # <-- change this if needed
-#DATA_DIR = Path("/dmidata/projects/nckf/earthshine/GESLA4/").expanduser()  # <-- change this if needed
+# DATA_DIR = Path("/dmidata/projects/nckf/earthshine/GESLA4/").expanduser()  # <-- change this if needed
 OUT_RDS = WORKDIR / "DATA/station_metadata.rds"
 HEADER_NLINES = 41
 

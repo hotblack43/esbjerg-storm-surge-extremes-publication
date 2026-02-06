@@ -34,14 +34,30 @@ BAD_VALUE = -99.9999
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Plot raw GESLA4 tide-gauge series (datetime vs value column).")
-    p.add_argument("name", help="GESLA4 station filename (no extension), located in ~/GESLA4/DATA/")
-    p.add_argument("--max-points", type=int, default=0,
-                   help="Optional downsample cap for plotting (0 = no cap). Keeps evenly spaced points.")
-    p.add_argument("--show-gaps-hours", type=float, default=6.0,
-                   help="Insert NaNs when time gap exceeds this many hours, to visually break the line.")
-    p.add_argument("--bad-value", type=float, default=BAD_VALUE,
-                   help="Bad data flag value to omit before plotting (default: -99.9999).")
+    p = argparse.ArgumentParser(
+        description="Plot raw GESLA4 tide-gauge series (datetime vs value column)."
+    )
+    p.add_argument(
+        "name", help="GESLA4 station filename (no extension), located in ~/GESLA4/DATA/"
+    )
+    p.add_argument(
+        "--max-points",
+        type=int,
+        default=0,
+        help="Optional downsample cap for plotting (0 = no cap). Keeps evenly spaced points.",
+    )
+    p.add_argument(
+        "--show-gaps-hours",
+        type=float,
+        default=6.0,
+        help="Insert NaNs when time gap exceeds this many hours, to visually break the line.",
+    )
+    p.add_argument(
+        "--bad-value",
+        type=float,
+        default=BAD_VALUE,
+        help="Bad data flag value to omit before plotting (default: -99.9999).",
+    )
     return p.parse_args()
 
 
@@ -52,7 +68,9 @@ def try_float(x: str) -> float:
         return float("nan")
 
 
-def read_gesla_file(path: Path, header_lines: int, bad_value: float) -> tuple[np.ndarray, np.ndarray]:
+def read_gesla_file(
+    path: Path, header_lines: int, bad_value: float
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Returns:
       times: numpy array of python datetimes (dtype=object)
@@ -93,12 +111,16 @@ def read_gesla_file(path: Path, header_lines: int, bad_value: float) -> tuple[np
             vals.append(v)
 
     if len(times) == 0:
-        raise RuntimeError(f"No valid data rows parsed from {path} after filtering (bad_value={bad_value}).")
+        raise RuntimeError(
+            f"No valid data rows parsed from {path} after filtering (bad_value={bad_value})."
+        )
 
     return np.array(times, dtype=object), np.array(vals, dtype=float)
 
 
-def insert_gap_nans(times: np.ndarray, vals: np.ndarray, gap_hours: float) -> tuple[np.ndarray, np.ndarray]:
+def insert_gap_nans(
+    times: np.ndarray, vals: np.ndarray, gap_hours: float
+) -> tuple[np.ndarray, np.ndarray]:
     if len(times) < 2:
         return times, vals
 
@@ -118,7 +140,9 @@ def insert_gap_nans(times: np.ndarray, vals: np.ndarray, gap_hours: float) -> tu
     return np.array(out_t, dtype=object), np.array(out_v, dtype=float)
 
 
-def downsample_even(times: np.ndarray, vals: np.ndarray, max_points: int) -> tuple[np.ndarray, np.ndarray]:
+def downsample_even(
+    times: np.ndarray, vals: np.ndarray, max_points: int
+) -> tuple[np.ndarray, np.ndarray]:
     if max_points <= 0 or len(times) <= max_points:
         return times, vals
     idx = np.linspace(0, len(times) - 1, max_points).astype(int)
@@ -134,14 +158,18 @@ def main() -> int:
         print("Tip: pass the bare filename (no extension).", file=sys.stderr)
         return 2
 
-    times, vals = read_gesla_file(path, header_lines=HEADER_LINES, bad_value=args.bad_value)
+    times, vals = read_gesla_file(
+        path, header_lines=HEADER_LINES, bad_value=args.bad_value
+    )
 
     times2, vals2 = insert_gap_nans(times, vals, gap_hours=args.show_gaps_hours)
     times3, vals3 = downsample_even(times2, vals2, max_points=args.max_points)
 
     plt.figure(figsize=(18, 6))
     plt.plot(times3, vals3, linewidth=0.6)
-    plt.title(f"GESLA4 raw tide-gauge series: {args.name} (bad_value omitted: {args.bad_value})")
+    plt.title(
+        f"GESLA4 raw tide-gauge series: {args.name} (bad_value omitted: {args.bad_value})"
+    )
     plt.xlabel("Time")
     plt.ylabel("Observed level (3rd column, raw units)")
     plt.grid(True, alpha=0.3)
@@ -153,4 +181,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

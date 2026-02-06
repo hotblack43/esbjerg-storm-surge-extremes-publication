@@ -185,7 +185,7 @@ def detect_level_shifts_robust(
     for _ in range(max_cpts):
         best_overall = None  # (improvement, seg_index, split_at, delta, new_total_cost)
         current_total_cost = 0.0
-        for (a, b) in segments:
+        for a, b in segments:
             current_total_cost += segment_cost(x2[a:b])
 
         for si, (a, b) in enumerate(segments):
@@ -291,12 +291,17 @@ def qc_one_series(
     if sh.change_indices:
         for i in sh.change_indices:
             flags[i] += "LEVEL_SHIFT_CPT;"
-        level_shift_years = [int(years[i]) for i in sh.change_indices if np.isfinite(years[i])]
+        level_shift_years = [
+            int(years[i]) for i in sh.change_indices if np.isfinite(years[i])
+        ]
         issues.extend(sh.notes)
     else:
         issues.extend(sh.notes)
 
-    strong_any = any(("OUTLIER_LEVEL" in f or "OUTLIER_SPIKE" in f or "LEVEL_SHIFT_CPT" in f) for f in flags)
+    strong_any = any(
+        ("OUTLIER_LEVEL" in f or "OUTLIER_SPIKE" in f or "LEVEL_SHIFT_CPT" in f)
+        for f in flags
+    )
     integrity_bad = ("duplicate_years" in issues) or ("nonmonotone_years" in issues)
     ok = (not strong_any) and (not integrity_bad)
 
@@ -312,7 +317,9 @@ def qc_one_series(
     )
 
 
-def plot_qc(years: np.ndarray, x: np.ndarray, flags: List[str], title: str, outfile: str) -> None:
+def plot_qc(
+    years: np.ndarray, x: np.ndarray, flags: List[str], title: str, outfile: str
+) -> None:
     import matplotlib.pyplot as plt
 
     plt.figure(figsize=(12, 7))
@@ -320,7 +327,14 @@ def plot_qc(years: np.ndarray, x: np.ndarray, flags: List[str], title: str, outf
 
     bad = np.array([f != "" for f in flags], dtype=bool)
     if np.any(bad):
-        plt.scatter(years[bad], x[bad], s=90, facecolors="none", edgecolors="black", linewidths=2)
+        plt.scatter(
+            years[bad],
+            x[bad],
+            s=90,
+            facecolors="none",
+            edgecolors="black",
+            linewidths=2,
+        )
         for y, xv, fl in zip(years[bad], x[bad], np.array(flags)[bad]):
             plt.text(y, xv, fl.rstrip(";"), fontsize=8, va="bottom", ha="center")
 
@@ -351,7 +365,14 @@ def plot_qc_two_panel(
 
     bad = np.array([f != "" for f in flags_msl], dtype=bool)
     if np.any(bad):
-        ax.scatter(years[bad], msl[bad], s=90, facecolors="none", edgecolors="black", linewidths=2)
+        ax.scatter(
+            years[bad],
+            msl[bad],
+            s=90,
+            facecolors="none",
+            edgecolors="black",
+            linewidths=2,
+        )
         for y, xv, fl in zip(years[bad], msl[bad], np.array(flags_msl)[bad]):
             ax.text(y, xv, fl.rstrip(";"), fontsize=8, va="bottom", ha="center")
 
@@ -364,7 +385,14 @@ def plot_qc_two_panel(
 
     bad = np.array([f != "" for f in flags_ann], dtype=bool)
     if np.any(bad):
-        ax.scatter(years[bad], ann[bad], s=90, facecolors="none", edgecolors="black", linewidths=2)
+        ax.scatter(
+            years[bad],
+            ann[bad],
+            s=90,
+            facecolors="none",
+            edgecolors="black",
+            linewidths=2,
+        )
         for y, xv, fl in zip(years[bad], ann[bad], np.array(flags_ann)[bad]):
             ax.text(y, xv, fl.rstrip(";"), fontsize=8, va="bottom", ha="center")
 
@@ -411,37 +439,61 @@ def main() -> None:
         try:
             df = read_any_table(path)
         except Exception as e:
-            summary_rows.append({
-                "file": os.path.basename(path),
-                "n": np.nan,
-                "ok_MSL": False,
-                "ok_ANNMAX": False,
-                "overall_ok": False,
-                "notes": f"READ_FAIL: {e}",
-            })
+            summary_rows.append(
+                {
+                    "file": os.path.basename(path),
+                    "n": np.nan,
+                    "ok_MSL": False,
+                    "ok_ANNMAX": False,
+                    "overall_ok": False,
+                    "notes": f"READ_FAIL: {e}",
+                }
+            )
             continue
 
         # FIX: include storm_year (your files) as a year candidate
-        year_col = pick_column(df, [
-            "year", "yr", "yyyy",
-            "annual_year", "summer_year",
-            "storm_year", "stormyear",
-            "season_year", "water_year"
-        ])
-        msl_col = pick_column(df, ["msl", "mean_sea_level", "meansealevel", "gmsl", "msl_cm", "msl_mm"])
-        ann_col = pick_column(df, ["annmax", "annual_max", "annualmax", "max", "max_residual",
-                                   "annual_residual_max", "rx1y"])
+        year_col = pick_column(
+            df,
+            [
+                "year",
+                "yr",
+                "yyyy",
+                "annual_year",
+                "summer_year",
+                "storm_year",
+                "stormyear",
+                "season_year",
+                "water_year",
+            ],
+        )
+        msl_col = pick_column(
+            df, ["msl", "mean_sea_level", "meansealevel", "gmsl", "msl_cm", "msl_mm"]
+        )
+        ann_col = pick_column(
+            df,
+            [
+                "annmax",
+                "annual_max",
+                "annualmax",
+                "max",
+                "max_residual",
+                "annual_residual_max",
+                "rx1y",
+            ],
+        )
 
         if year_col is None or msl_col is None or ann_col is None:
-            summary_rows.append({
-                "file": os.path.basename(path),
-                "n": int(df.shape[0]),
-                "ok_MSL": False,
-                "ok_ANNMAX": False,
-                "overall_ok": False,
-                "notes": "MISSING_COLS: need year+MSL+ANNMAX. "
-                         f"Have: {list(df.columns)}",
-            })
+            summary_rows.append(
+                {
+                    "file": os.path.basename(path),
+                    "n": int(df.shape[0]),
+                    "ok_MSL": False,
+                    "ok_ANNMAX": False,
+                    "overall_ok": False,
+                    "notes": "MISSING_COLS: need year+MSL+ANNMAX. "
+                    f"Have: {list(df.columns)}",
+                }
+            )
             continue
 
         years = pd.to_numeric(df[year_col], errors="coerce").to_numpy(dtype=float)
@@ -453,18 +505,24 @@ def main() -> None:
         msl = msl[order]
         ann = ann[order]
 
-        qc_msl = qc_one_series(years, msl, args.z_outlier, args.z_spike, args.min_seg, args.shift_k)
-        qc_ann = qc_one_series(years, ann, args.z_outlier, args.z_spike, args.min_seg, args.shift_k)
+        qc_msl = qc_one_series(
+            years, msl, args.z_outlier, args.z_spike, args.min_seg, args.shift_k
+        )
+        qc_ann = qc_one_series(
+            years, ann, args.z_outlier, args.z_spike, args.min_seg, args.shift_k
+        )
 
         overall_ok = bool(qc_msl.ok and qc_ann.ok)
 
-        details = pd.DataFrame({
-            "storm_year": years,   # keep your naming in output
-            "mean_sea_level": msl,
-            "max_residual": ann,
-            "flags_MSL": qc_msl.flags,
-            "flags_ANNMAX": qc_ann.flags,
-        })
+        details = pd.DataFrame(
+            {
+                "storm_year": years,  # keep your naming in output
+                "mean_sea_level": msl,
+                "max_residual": ann,
+                "flags_MSL": qc_msl.flags,
+                "flags_ANNMAX": qc_ann.flags,
+            }
+        )
         details_out = os.path.join(outdir, f"qc_details_{base}.csv")
         details.to_csv(details_out, index=False)
 
@@ -479,21 +537,27 @@ def main() -> None:
                 os.path.join(outdir, f"qc_plot_{base}_MSL_ANNMAX.png"),
             )
 
-        notes = " | ".join([
-            "MSL:" + ",".join(qc_msl.issues),
-            "ANNMAX:" + ",".join(qc_ann.issues),
-        ])
+        notes = " | ".join(
+            [
+                "MSL:" + ",".join(qc_msl.issues),
+                "ANNMAX:" + ",".join(qc_ann.issues),
+            ]
+        )
 
-        summary_rows.append({
-            "file": os.path.basename(path),
-            "n": int(len(years)),
-            "ok_MSL": bool(qc_msl.ok),
-            "ok_ANNMAX": bool(qc_ann.ok),
-            "overall_ok": overall_ok,
-            "notes": notes,
-        })
+        summary_rows.append(
+            {
+                "file": os.path.basename(path),
+                "n": int(len(years)),
+                "ok_MSL": bool(qc_msl.ok),
+                "ok_ANNMAX": bool(qc_ann.ok),
+                "overall_ok": overall_ok,
+                "notes": notes,
+            }
+        )
 
-    summary_df = pd.DataFrame(summary_rows).sort_values(by=["overall_ok", "file"], ascending=[True, True])
+    summary_df = pd.DataFrame(summary_rows).sort_values(
+        by=["overall_ok", "file"], ascending=[True, True]
+    )
     summary_out = os.path.join(outdir, "qc_summary.csv")
     summary_df.to_csv(summary_out, index=False)
 
@@ -508,4 +572,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
