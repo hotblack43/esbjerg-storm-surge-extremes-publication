@@ -2,6 +2,11 @@
 .Rhistory
 .RData
 .Ruserdata
+*.rds
+*.png
+*.csv
+*.nc
+OLD/
 
 # big archives
 *.tar.gz
