@@ -4,7 +4,7 @@
 Reproduces the calculations in our manuscript XYZ. Produces tables a
 for latex and png files for the plots.
 
-Follow the procedures in NEW/run_all_tides.sh However, that is nota
+Follow the procedures in run_all_tides.sh However, that is nota
 script to run - look in it and see th ethings thank can be run from the
 command line, and see the R,d code that has to be run from inside Rstudio.
 
