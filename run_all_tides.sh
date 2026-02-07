@@ -26,4 +26,11 @@ uv run make_map_TRIANGLES_6.py
 # Other, auxiliary codes exist - e.g. for making bathymetric station maps
 # and interactive visual quality checking.
 #--------------------------------------------------------------------
+# To produce the boxplots and the heatmap, do
+# uv run seabed_slope_depth_fast.py --column depth_band_median_m
+# uv run summarise_best_ring.py
+# uv run seabed_slope_depth_fast.py --column slope_median
+# uv run summarise_best_ring.py
+#--------------------------------------------------------------------
+
 

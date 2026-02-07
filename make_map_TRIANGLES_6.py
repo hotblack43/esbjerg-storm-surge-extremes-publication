@@ -237,7 +237,7 @@ def main() -> None:
         default=str(Path(os.path.expanduser("./")).resolve()),
         help="Project root directory (default: ./)",
     )
-    parser.add_argument("--etopo", default="DATA/ETOPO1_Bed_g_gmt4.grd", help="ETOPO grid path relative to root")
+    parser.add_argument("--etopo", default="/home/pth/WORKSHOP/ESBJERG2/DATA/ETOPO1_Bed_g_gmt4.grd", help="ETOPO grid path relative to root")
     parser.add_argument("--best", default="OUTPUT/the_best.rds", help="the_best.rds relative to root")
     parser.add_argument("--goodies", default="OUTPUT/the_goodies.rds", help="the_goodies.rds relative to root")
     parser.add_argument(
