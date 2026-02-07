@@ -479,8 +479,128 @@ def save_all_boxplots(
         fig.savefig(fname, dpi=300)
         plt.close(fig)
 
-
 def save_split_heatmap_logp(
+    results_stat: pl.DataFrame,
+    results_non: pl.DataFrame,
+    column_to_use: str,
+    outdir: str,
+):
+    """
+    Split (two-panel) heatmap with GRADED intensity like the Rmd.
+
+    We plot -log10(p) (positive = more significant) and use a continuous alpha
+    based on significance, so intensity grades smoothly instead of binary fade.
+    """
+    os.makedirs(outdir, exist_ok=True)
+
+    res = pl.concat([results_stat, results_non], how="vertical")
+    if res.height == 0:
+        return
+
+    res = res.filter(pl.col("column") == column_to_use)
+    if res.height == 0:
+        return
+
+    # Use -log10(p) for intuitive intensity: bigger = more significant
+    # Protect p=0 with floor
+    res = res.with_columns([
+        pl.max_horizontal([pl.col("t_p_value"), pl.lit(1e-12)]).alias("p_safe"),
+    ]).with_columns([
+        (-pl.col("p_safe").log10()).alias("neglog10p"),
+    ])
+
+    inner_levels = sorted(res["inner_radius_km"].unique().to_list())
+    outer_levels = sorted(res["outer_radius_km"].unique().to_list())
+
+    x_tick_idx = list(range(0, len(outer_levels), 2))
+    y_tick_idx = list(range(0, len(inner_levels), 2))
+
+    def make_grid(sub: pl.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Returns:
+          grid_value  = -log10(p)
+          grid_alpha  = graded alpha in [alpha_min, 1]
+        """
+        grid = np.full((len(inner_levels), len(outer_levels)), np.nan, dtype=float)
+
+        # Alpha grading parameters (tune if you like)
+        # - p=0.05 -> neglog10p ~1.3 : faint
+        # - p=1e-6 -> 6 : strong
+        alpha_min = 0.10
+        alpha_max_at = 6.0  # neglog10p at which alpha saturates to 1.0
+
+        alpha = np.full((len(inner_levels), len(outer_levels)), alpha_min, dtype=float)
+
+        inner_to_i = {v: i for i, v in enumerate(inner_levels)}
+        outer_to_j = {v: j for j, v in enumerate(outer_levels)}
+
+        for inner, outer, val in sub.select(
+            ["inner_radius_km", "outer_radius_km", "neglog10p"]
+        ).iter_rows():
+
+            i = inner_to_i[inner]
+            j = outer_to_j[outer]
+
+            grid[i, j] = val
+
+            # Continuous alpha: scale val up to alpha_max_at, then clamp
+            a = alpha_min + (1.0 - alpha_min) * min(max(val / alpha_max_at, 0.0), 1.0)
+            alpha[i, j] = a
+
+        return grid, alpha
+
+    panels = [
+        ("Stationary", res.filter(pl.col("type") == "Stationary")),
+        ("Non-stationary", res.filter(pl.col("type") == "Non-stationary")),
+    ]
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
+
+    # Colour scale for -log10(p)
+    vmin, vmax = 0.0, 6.0  # 6 corresponds to p=1e-6; adjust if you want more range
+
+    cmap = plt.cm.inferno.copy()
+    cmap.set_bad(alpha=0.0)  # masked values transparent
+
+    im_for_cbar = None
+
+    for ax, (title, sub) in zip(axes, panels):
+        grid, alpha = make_grid(sub)
+        grid_masked = np.ma.masked_invalid(grid)
+
+        im = ax.imshow(
+            grid_masked,
+            origin="lower",
+            vmin=vmin,
+            vmax=vmax,
+            aspect="auto",
+            cmap=cmap,
+            alpha=alpha,  # graded intensity
+        )
+
+        if im_for_cbar is None:
+            im_for_cbar = im
+
+        ax.set_title(title, fontweight="bold")
+        ax.set_xlabel("Outer radius (km)")
+        ax.set_ylabel("Inner radius (km)")
+
+        ax.set_xticks(x_tick_idx)
+        ax.set_xticklabels([str(outer_levels[i]) for i in x_tick_idx], rotation=45, ha="right")
+        ax.set_yticks(y_tick_idx)
+        ax.set_yticklabels([str(inner_levels[i]) for i in y_tick_idx])
+
+    fig.suptitle(f"Median Split t-test p-values for {column_to_use} vs beta (-log10 p)", fontsize=13)
+
+    cbar = fig.colorbar(im_for_cbar, ax=axes.ravel().tolist(), shrink=0.85)
+    cbar.set_label("-log10(p-value)")
+
+    out = os.path.join(outdir, f"median_split_neglog10p_heatmap_SPLIT_{column_to_use}.png")
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+
+
+def old_save_split_heatmap_logp(
     results_stat: pl.DataFrame,
     results_non: pl.DataFrame,
     column_to_use: str,
