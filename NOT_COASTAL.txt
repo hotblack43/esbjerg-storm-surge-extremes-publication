@@ -474,7 +474,6 @@
 /home/pth/GESLA4/DATA/goteborglarjeholm-got-swe-cmems
 /home/pth/GESLA4/DATA/goteborg_tingstadstunneln-33093-swe-smhi
 /home/pth/GESLA4/DATA/goteborgtingstadstunneln-got-swe-cmems
-/home/pth/GESLA4/DATA/goteborg_torshamnen-2109-swe-smhi
 /home/pth/GESLA4/DATA/gouda_brug-goudbg-nld-rws
 /home/pth/GESLA4/DATA/gouda_brug-goudbg-nld-rws_hist
 /home/pth/GESLA4/DATA/gouda_brug-goud-nld-rws
@@ -998,7 +997,6 @@
 /home/pth/GESLA4/DATA/san_bernard_rv_at_fm_521_nr_cedar_lane_tx-8117720-usa-usgs
 /home/pth/GESLA4/DATA/san_bernard_rv_nr_sweeny_tx-8117705-usa-usgs
 /home/pth/GESLA4/DATA/sandy_island-8661703-usa-noaa
-/home/pth/GESLA4/DATA/san_francisco_bay_a_old_dumbarton_br_nr_newark_ca-373025122065901-usa-usgs
 /home/pth/GESLA4/DATA/san_jacinto_river_rio_villa-san-usa-hct
 /home/pth/GESLA4/DATA/san_jacinto_rv_nr_sheldon_tx-8072050-usa-usgs
 /home/pth/GESLA4/DATA/san_joaquin_r_a_channel_marker_42_nr_iselton_ca-11336955-usa-usgs

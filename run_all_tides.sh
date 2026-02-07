@@ -20,7 +20,8 @@ uv run qc_annuals2_2.py --indir OUTPUT/ANNUALS2 --outdir OUTPUT/ANNUALS2_QC --pl
 uv run S_vs_NS_tester_9_resampling.py
 uv run consider_collected_S_vs_NS_results_4.py
 uv run make_publication_table_4.py
-uv run make_map_lon_lat_tidegauge_stations_15_satellite_zoom.py
+#uv run make_map_lon_lat_tidegauge_stations_15_satellite_zoom.py
+uv run make_map_TRIANGLES_6.py
 #--------------------------------------------------------------------
 # Other, auxiliary codes exist - e.g. for making bathymetric station maps
 # and interactive visual quality checking.

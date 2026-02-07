@@ -1612,7 +1612,6 @@
 /home/pth/GESLA4/DATA/funafuti-67440-tuv-bom
 /home/pth/GESLA4/DATA/funchal-218b-prt-uhslc_rq
 /home/pth/GESLA4/DATA/funchal-218-prt-uhslc_fd
-/home/pth/GESLA4/DATA/furuogrund-2055-swe-smhi
 /home/pth/GESLA4/DATA/furuogrund-fur-swe-cmems
 /home/pth/GESLA4/DATA/fury_beach_north_of-65918-can-meds
 /home/pth/GESLA4/DATA/fushikitoyama_fushiki-4002-jpn-jodc_pahb
@@ -1785,8 +1784,6 @@
 /home/pth/GESLA4/DATA/haikou-638a-chn-uhslc_rq
 /home/pth/GESLA4/DATA/hakata-hd18-jpn-jodc_jcg
 /home/pth/GESLA4/DATA/hakodate-364a-jpn-uhslc_rq
-/home/pth/GESLA4/DATA/hakodate-364-jpn-uhslc_fd
-/home/pth/GESLA4/DATA/hakodate-ma06-jpn-jodc_jma
 /home/pth/GESLA4/DATA/haldeman_navd88-halde-usa-sfwmd
 /home/pth/GESLA4/DATA/haleiwa-422-usa-uhslc_fd
 /home/pth/GESLA4/DATA/half_moon_bay-9433445-usa-noaa
@@ -1820,7 +1817,6 @@
 /home/pth/GESLA4/DATA/hanimaadhoo-117b-mdv-uhslc_rq
 /home/pth/GESLA4/DATA/hanimaadhoo-117-mdv-uhslc_fd
 /home/pth/GESLA4/DATA/hanko-han-fin-cmems
-/home/pth/GESLA4/DATA/hanko_pikku_kolalahti-134253-fin-fmi
 /home/pth/GESLA4/DATA/hanstholmtg-han-dnk-cmems
 /home/pth/GESLA4/DATA/hansweert-hans-nld-rws
 /home/pth/GESLA4/DATA/hansweert-hanswt-nld-rws_hist
@@ -2264,7 +2260,6 @@
 /home/pth/GESLA4/DATA/kashimako-0101-jpn-jodc_pahb
 /home/pth/GESLA4/DATA/kashiwazaki-gs08-jpn-jodc_giaj
 /home/pth/GESLA4/DATA/kasitsna_bay-9455517-usa-noaa
-/home/pth/GESLA4/DATA/kaskinen_adskar-134251-fin-fmi
 /home/pth/GESLA4/DATA/kaskinen-kas-fin-cmems
 /home/pth/GESLA4/DATA/kasos-kas-grc-cmems
 /home/pth/GESLA4/DATA/katsuura-gs11-jpn-jodc_giaj
@@ -2296,7 +2291,6 @@
 /home/pth/GESLA4/DATA/kelnase-kel-est-cmems
 /home/pth/GESLA4/DATA/kelsey_bay_bc-8215-can-meds
 /home/pth/GESLA4/DATA/kemano_bay_bc-9150-can-meds
-/home/pth/GESLA4/DATA/kemi_ajos-100539-fin-fmi
 /home/pth/GESLA4/DATA/kemi-kem-fin-cmems
 /home/pth/GESLA4/DATA/kennebunkport-8418911-usa-noaa
 /home/pth/GESLA4/DATA/kennedy_cove_bc-8623-can-meds
@@ -2402,7 +2396,6 @@
 /home/pth/GESLA4/DATA/kumamoto-9028-jpn-jodc_pahb
 /home/pth/GESLA4/DATA/kumano-ma65-jpn-jodc_jma
 /home/pth/GESLA4/DATA/kungsholmsfort-2088-swe-smhi
-/home/pth/GESLA4/DATA/kungsholmsfort-kun-swe-cmems
 /home/pth/GESLA4/DATA/kungsvik-2130-swe-smhi
 /home/pth/GESLA4/DATA/kungsvik-kun-swe-cmems
 /home/pth/GESLA4/DATA/kure-gs13-jpn-jodc_giaj
@@ -2417,9 +2410,7 @@
 /home/pth/GESLA4/DATA/kutsugatako-0129-jpn-jodc_pahb
 /home/pth/GESLA4/DATA/kuujjuaq-4298-can-meds
 /home/pth/GESLA4/DATA/kuujjuarapik-4645-can-meds
-/home/pth/GESLA4/DATA/kwajalein-055a-mhl-uhslc_rq
 /home/pth/GESLA4/DATA/kwajalein-055-mhl-uhslc_fd
-/home/pth/GESLA4/DATA/kwajalein-1820000-usa-noaa
 /home/pth/GESLA4/DATA/kwigillinok-9465911-usa-noaa
 /home/pth/GESLA4/DATA/kynumpt_hbr_bc-8978-can-meds
 /home/pth/GESLA4/DATA/l91tg-l91-nld-cmems
@@ -2449,8 +2440,6 @@
 /home/pth/GESLA4/DATA/la_guaira-247a-ven-uhslc_rq
 /home/pth/GESLA4/DATA/laguna_bahia_mosquito_no1_vieques_pr-50231500-usa-usgs
 /home/pth/GESLA4/DATA/laiemaloo-1612702-usa-noaa
-/home/pth/GESLA4/DATA/la_jolla-9410230-usa-noaa
-/home/pth/GESLA4/DATA/la_jolla_ca-554a-usa-uhslc_rq
 /home/pth/GESLA4/DATA/la_jolla_ca-554-usa-uhslc_fd
 /home/pth/GESLA4/DATA/lake_montauk-8510448-usa-noaa
 /home/pth/GESLA4/DATA/lake_rudee_near_bells_road_at_virginia_beach_va-204297575-usa-usgs
@@ -2459,7 +2448,6 @@
 /home/pth/GESLA4/DATA/lake_worth-8652905-usa-noaa
 /home/pth/GESLA4/DATA/lake_worth_icw-8722669-usa-noaa
 /home/pth/GESLA4/DATA/lake_worth_pier-8722670-usa-noaa
-/home/pth/GESLA4/DATA/la_libertad-091a-ecu-uhslc_rq
 /home/pth/GESLA4/DATA/la_libertad-091-ecu-uhslc_fd
 /home/pth/GESLA4/DATA/lameshur_bay-9751381-usa-noaa
 /home/pth/GESLA4/DATA/lameshur_bay_vi-214a-usa-uhslc_rq
@@ -2531,7 +2519,6 @@
 /home/pth/GESLA4/DATA/leavatg_60minute-lea-fra-cmems
 /home/pth/GESLA4/DATA/lebrusctg_10minute-leb-fra-cmems
 /home/pth/GESLA4/DATA/le_conquet-152-fra-refmar
-/home/pth/GESLA4/DATA/leconquettg_60minute-lec-fra-cmems
 /home/pth/GESLA4/DATA/leconte_bay-9451422-usa-noaa
 /home/pth/GESLA4/DATA/le_crouesty-185-fra-refmar
 /home/pth/GESLA4/DATA/lecrouestytg_60minute-lec-fra-cmems
@@ -2814,7 +2801,6 @@
 /home/pth/GESLA4/DATA/martin_bayou_at_us_98_at_springfield_fl-2359315-usa-usgs
 /home/pth/GESLA4/DATA/martin_islands-65960-can-meds
 /home/pth/GESLA4/DATA/marviken-2076-swe-smhi
-/home/pth/GESLA4/DATA/marviken-mar-swe-cmems
 /home/pth/GESLA4/DATA/marysville-9447729-usa-noaa
 /home/pth/GESLA4/DATA/masirah-113a-omn-uhslc_rq
 /home/pth/GESLA4/DATA/masirah-113-omn-uhslc_fd
@@ -2949,8 +2935,6 @@
 /home/pth/GESLA4/DATA/mitlenatch_bc-7895-can-meds
 /home/pth/GESLA4/DATA/mitrofania_island-9459016-usa-noaa
 /home/pth/GESLA4/DATA/mittelgrund-9510132-deu-wsv
-/home/pth/GESLA4/DATA/miyakejima-357a-jpn-uhslc_rq
-/home/pth/GESLA4/DATA/miyakejima-357a-jpn-uhslc_rq_aligned
 /home/pth/GESLA4/DATA/miyakejima-hd10-jpn-jodc_jcg
 /home/pth/GESLA4/DATA/miyakejima-hd10-jpn-jodc_jcg_aligned
 /home/pth/GESLA4/DATA/miyakeshima-ma71-jpn-jodc_jma
@@ -3142,8 +3126,6 @@
 /home/pth/GESLA4/DATA/newhaven-nha-gbr-da_idh
 /home/pth/GESLA4/DATA/new_london-8461490-usa-noaa
 /home/pth/GESLA4/DATA/new_london_ct-744a-usa-uhslc_rq
-/home/pth/GESLA4/DATA/newlyn_cornwall-294a-gbr-uhslc_rq
-/home/pth/GESLA4/DATA/newlyn_cornwall-294-gbr-uhslc_fd
 /home/pth/GESLA4/DATA/newlyn-new-gbr-bodc
 /home/pth/GESLA4/DATA/newlyn-new-gbr-cmems
 /home/pth/GESLA4/DATA/newman_bay-3740-can-meds
@@ -3359,7 +3341,6 @@
 /home/pth/GESLA4/DATA/ouistreham-311-fra-refmar
 /home/pth/GESLA4/DATA/ouistrehamtg_60minute-oui-fra-cmems
 /home/pth/GESLA4/DATA/oulu-oul-fin-cmems
-/home/pth/GESLA4/DATA/oulu_toppila-134248-fin-fmi
 /home/pth/GESLA4/DATA/oura-ma47-jpn-jodc_jma
 /home/pth/GESLA4/DATA/outside_lopp_lagoon-9469515-usa-noaa
 /home/pth/GESLA4/DATA/ouvea-380-fra-refmar
@@ -3470,8 +3451,6 @@
 /home/pth/GESLA4/DATA/penobscot_river_at_winterport_maine-443810068502201-usa-usgs
 /home/pth/GESLA4/DATA/penrhyn-024a-cok-uhslc_rq
 /home/pth/GESLA4/DATA/penrhyn-024-cok-uhslc_fd
-/home/pth/GESLA4/DATA/pensacola-8729840-usa-noaa
-/home/pth/GESLA4/DATA/pensacola_fl-762a-usa-uhslc_rq
 /home/pth/GESLA4/DATA/pensacola_fl-762-usa-uhslc_fd
 /home/pth/GESLA4/DATA/penuelas_pr-243a-pri-uhslc_rq
 /home/pth/GESLA4/DATA/penuelas_punta_guayanilla-9758053-usa-noaa
@@ -3857,7 +3836,6 @@
 /home/pth/GESLA4/DATA/qui_nhon-381b-vnm-uhslc_rq
 /home/pth/GESLA4/DATA/qui_nhon-381-vnm-uhslc_fd
 /home/pth/GESLA4/DATA/quonset_point-8454049-usa-noaa
-/home/pth/GESLA4/DATA/raahe_lapaluoto-100540-fin-fmi
 /home/pth/GESLA4/DATA/raahe-raa-fin-cmems
 /home/pth/GESLA4/DATA/rabaul-010a-png-uhslc_rq
 /home/pth/GESLA4/DATA/raccoon_key_spit-8678124-usa-noaa
@@ -3881,7 +3859,6 @@
 /home/pth/GESLA4/DATA/rarotonga-023-cok-uhslc_fd
 /home/pth/GESLA4/DATA/rarotonga_avarua_harbour-65980-cok-bom
 /home/pth/GESLA4/DATA/ratan-2056-swe-smhi
-/home/pth/GESLA4/DATA/ratan-rat-swe-cmems
 /home/pth/GESLA4/DATA/rattlesnake_creek_at_belleair_fl-2309200-usa-usgs
 /home/pth/GESLA4/DATA/raulerson_brothers_canal_at_cape_sable_fl-251115081075800-usa-usgs
 /home/pth/GESLA4/DATA/rauma-rau-fin-cmems
@@ -4193,8 +4170,6 @@
 /home/pth/GESLA4/DATA/san_felipe-307a-mex-uhslc_rq
 /home/pth/GESLA4/DATA/san_felix-035a-chl-uhslc_rq
 /home/pth/GESLA4/DATA/san_felix-035-chl-uhslc_fd
-/home/pth/GESLA4/DATA/san_francisco-9414290-usa-noaa
-/home/pth/GESLA4/DATA/san_francisco_ca-551a-usa-uhslc_rq
 /home/pth/GESLA4/DATA/san_francisco_ca-551-usa-uhslc_fd
 /home/pth/GESLA4/DATA/sanfrancisco_fort_point-9414920-usa-da_sat
 /home/pth/GESLA4/DATA/sanikiluaq-4628-can-meds
@@ -4383,9 +4358,6 @@
 /home/pth/GESLA4/DATA/sisal_radar-10-mex-unam
 /home/pth/GESLA4/DATA/sisimiut-296a-dnk-uhslc_rq
 /home/pth/GESLA4/DATA/sitka-9451600-usa-noaa
-/home/pth/GESLA4/DATA/sitka_ak-559a-usa-uhslc_rq
-/home/pth/GESLA4/DATA/sitka_ak-559-usa-uhslc_fd
-/home/pth/GESLA4/DATA/sitkalidak_island_gps_tide_buoy-9457512-usa-noaa
 /home/pth/GESLA4/DATA/siwash_bay-8311-can-meds
 /home/pth/GESLA4/DATA/sjaellandsodde-sja-dnk-cmems
 /home/pth/GESLA4/DATA/skagen-ska-dnk-cmems
@@ -4469,7 +4441,6 @@
 /home/pth/GESLA4/DATA/spiekeroog-9410010-deu-wsv
 /home/pth/GESLA4/DATA/spijkenissetg-spi-nld-cmems
 /home/pth/GESLA4/DATA/spikarna-2061-swe-smhi
-/home/pth/GESLA4/DATA/spikarna-spi-swe-cmems
 /home/pth/GESLA4/DATA/split_island_north-4632-can-meds
 /home/pth/GESLA4/DATA/split-spl-hrv-eseas
 /home/pth/GESLA4/DATA/spodsbjerg-spo-dnk-cmems
@@ -4543,9 +4514,6 @@
 /home/pth/GESLA4/DATA/st_marys-stm-gbr-da_idh
 /home/pth/GESLA4/DATA/st_michaels-8572342-usa-noaa
 /home/pth/GESLA4/DATA/stockholm-2069-swe-smhi
-/home/pth/GESLA4/DATA/stockholm-826a-swe-uhslc_rq
-/home/pth/GESLA4/DATA/stockholm_frihamnen-35233-swe-smhi
-/home/pth/GESLA4/DATA/stockholm-sto-swe-cmems
 /home/pth/GESLA4/DATA/stone_harbor-8535581-usa-noaa
 /home/pth/GESLA4/DATA/stonehaven-2120-can-meds
 /home/pth/GESLA4/DATA/storkerson_bay-6445-can-meds
@@ -4790,7 +4758,6 @@
 /home/pth/GESLA4/DATA/trocadero_bay-9450463-usa-noaa
 /home/pth/GESLA4/DATA/trois_pistoles-3005-can-meds
 /home/pth/GESLA4/DATA/tromsoetg-tro-nor-cmems
-/home/pth/GESLA4/DATA/tromso-tos-nor-nhs
 /home/pth/GESLA4/DATA/trondheimtg-tro-nor-cmems
 /home/pth/GESLA4/DATA/trondheim-trd-nor-nhs
 /home/pth/GESLA4/DATA/troup_passage_bc-8981-can-meds
@@ -4959,7 +4926,6 @@
 /home/pth/GESLA4/DATA/virginia_key_fl-755-usa-uhslc_fd
 /home/pth/GESLA4/DATA/virtsu-vir-est-cmems
 /home/pth/GESLA4/DATA/visby-2080-swe-smhi
-/home/pth/GESLA4/DATA/visby-vis-swe-cmems
 /home/pth/GESLA4/DATA/vishakhapatnam-157-ind-uhslc_fd
 /home/pth/GESLA4/DATA/vlaktevdraantg-vla-nld-cmems
 /home/pth/GESLA4/DATA/vlakte_vd_raan-vr-nld-rws
@@ -5154,8 +5120,6 @@
 /home/pth/GESLA4/DATA/yabucoa_harbor-9754228-usa-noaa
 /home/pth/GESLA4/DATA/yabucoa_harbor_pr-734a-usa-uhslc_rq
 /home/pth/GESLA4/DATA/yaizu-gs23-jpn-jodc_giaj
-/home/pth/GESLA4/DATA/yakutat-9453220-usa-noaa
-/home/pth/GESLA4/DATA/yakutat_ak-570a-usa-uhslc_rq
 /home/pth/GESLA4/DATA/yakutat_ak-570-usa-uhslc_fd
 /home/pth/GESLA4/DATA/yamba-60130-aus-bom
 /home/pth/GESLA4/DATA/yap-008a-fsm-uhslc_rq
