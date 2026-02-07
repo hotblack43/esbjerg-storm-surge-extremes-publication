@@ -13,8 +13,9 @@ output:
 # first step was to run GESLA_data_checker_x.Rmd (or the python version)
 # This is step #2
 
+ 
 
-```{r, message=FALSE}
+```{r setup}
 rm(list = ls())
 setwd("./")
 library(TideHarmonics)
@@ -32,7 +33,6 @@ Sys.setenv(TZ = "UTC")
 #
 stationinfo <- readRDS("DATA/station_metadata.rds")
 ```
-
 
 
 ```{r}

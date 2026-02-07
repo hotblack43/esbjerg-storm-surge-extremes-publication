@@ -32,7 +32,7 @@ Diagnostics (to OUTPUT/):
 Run:
   uv run python make_map_5.py
 Optional:
-  uv run python make_map_5.py --root /path/to/ESBJERG2 --eps 1e-6
+  uv run python make_map_5.py --root ~/WORKSHOP/esbjerg-storm-surge-extremes-publication --eps 1e-6
 """
 
 from __future__ import annotations
